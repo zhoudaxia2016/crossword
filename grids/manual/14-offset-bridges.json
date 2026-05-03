@@ -1,0 +1,31 @@
+{
+  "name": "14. offset bridges",
+  "note": "桥接感比较明显，既不是纯走廊，也不够经典，目标是中分样例。",
+  "size": 7,
+  "grid": [
+    ["#", "#", ".", ".", ".", "#", "#"],
+    [".", ".", ".", ".", ".", ".", "."],
+    [".", ".", ".", "#", ".", ".", "."],
+    [".", ".", ".", ".", ".", ".", "."],
+    [".", ".", ".", "#", ".", ".", "."],
+    [".", ".", ".", ".", ".", ".", "."],
+    ["#", "#", ".", ".", ".", "#", "#"]
+  ],
+  "slots": [
+    { "direction": "across", "row": 0, "col": 2, "length": 3 },
+    { "direction": "across", "row": 1, "col": 0, "length": 7 },
+    { "direction": "across", "row": 2, "col": 0, "length": 3 },
+    { "direction": "across", "row": 2, "col": 4, "length": 3 },
+    { "direction": "across", "row": 3, "col": 0, "length": 7 },
+    { "direction": "across", "row": 4, "col": 0, "length": 3 },
+    { "direction": "across", "row": 4, "col": 4, "length": 3 },
+    { "direction": "across", "row": 5, "col": 0, "length": 7 },
+    { "direction": "across", "row": 6, "col": 2, "length": 3 },
+    { "direction": "down", "row": 1, "col": 0, "length": 5 },
+    { "direction": "down", "row": 1, "col": 1, "length": 5 },
+    { "direction": "down", "row": 0, "col": 2, "length": 7 },
+    { "direction": "down", "row": 0, "col": 4, "length": 7 },
+    { "direction": "down", "row": 1, "col": 5, "length": 5 },
+    { "direction": "down", "row": 1, "col": 6, "length": 5 }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "11. centered classic",
+  "note": "中心有切分，3/5/7 长度比较均衡，目标是较高分合法样例。",
+  "size": 7,
+  "grid": [
+    ["#", "#", ".", ".", ".", "#", "#"],
+    ["#", ".", ".", ".", ".", ".", "#"],
+    [".", ".", ".", ".", ".", ".", "."],
+    [".", ".", ".", "#", ".", ".", "."],
+    [".", ".", ".", ".", ".", ".", "."],
+    ["#", ".", ".", ".", ".", ".", "#"],
+    ["#", "#", ".", ".", ".", "#", "#"]
+  ],
+  "slots": [
+    { "direction": "across", "row": 0, "col": 2, "length": 3 },
+    { "direction": "across", "row": 1, "col": 1, "length": 5 },
+    { "direction": "across", "row": 2, "col": 0, "length": 7 },
+    { "direction": "across", "row": 3, "col": 0, "length": 3 },
+    { "direction": "across", "row": 3, "col": 4, "length": 3 },
+    { "direction": "across", "row": 4, "col": 0, "length": 7 },
+    { "direction": "across", "row": 5, "col": 1, "length": 5 },
+    { "direction": "across", "row": 6, "col": 2, "length": 3 },
+    { "direction": "down", "row": 2, "col": 0, "length": 3 },
+    { "direction": "down", "row": 1, "col": 1, "length": 5 },
+    { "direction": "down", "row": 0, "col": 2, "length": 7 },
+    { "direction": "down", "row": 0, "col": 3, "length": 3 },
+    { "direction": "down", "row": 4, "col": 3, "length": 3 },
+    { "direction": "down", "row": 0, "col": 4, "length": 7 },
+    { "direction": "down", "row": 1, "col": 5, "length": 5 },
+    { "direction": "down", "row": 2, "col": 6, "length": 3 }
+  ]
+}

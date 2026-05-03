@@ -1,0 +1,44 @@
+{
+  "name": "02. high reuse",
+  "size": 3,
+  "expectedCount": 2,
+  "slots": [
+    { "direction": "across", "row": 0, "col": 0, "length": 3 },
+    { "direction": "across", "row": 2, "col": 0, "length": 3 },
+    { "direction": "down", "row": 0, "col": 0, "length": 3 },
+    { "direction": "down", "row": 0, "col": 2, "length": 3 }
+  ],
+  "lexicon": [
+    { "word": "春風", "reading": "はるか", "pos": "noun", "level": "N5", "tags": ["spring"] },
+    { "word": "空色", "reading": "そらい", "pos": "noun", "level": "N5", "tags": ["nature"] },
+    { "word": "花園", "reading": "はまそ", "pos": "noun", "level": "N5", "tags": ["spring"] },
+    { "word": "川辺", "reading": "かよい", "pos": "noun", "level": "N5", "tags": ["nature"] }
+  ],
+  "wordConstraints": {
+    "allowedPos": ["noun"],
+    "maxJlptLevel": "N5"
+  },
+  "wordPreferences": {
+    "preferredTags": ["spring", "nature"],
+    "preferredPos": ["noun"],
+    "preferredLevels": ["N5"]
+  },
+  "puzzles": [
+    {
+      "entries": [
+        { "number": 1, "direction": "across", "row": 0, "col": 0, "word": "春風", "reading": "はるか" },
+        { "number": 2, "direction": "across", "row": 2, "col": 0, "word": "空色", "reading": "そらい" },
+        { "number": 3, "direction": "down", "row": 0, "col": 0, "word": "花園", "reading": "はまそ" },
+        { "number": 4, "direction": "down", "row": 0, "col": 2, "word": "川辺", "reading": "かよい" }
+      ]
+    },
+    {
+      "entries": [
+        { "number": 1, "direction": "across", "row": 0, "col": 0, "word": "春風", "reading": "はるか" },
+        { "number": 2, "direction": "across", "row": 2, "col": 0, "word": "空色", "reading": "そらい" },
+        { "number": 3, "direction": "down", "row": 0, "col": 0, "word": "花園", "reading": "はまそ" },
+        { "number": 4, "direction": "down", "row": 0, "col": 2, "word": "川辺", "reading": "かよい" }
+      ]
+    }
+  ]
+}

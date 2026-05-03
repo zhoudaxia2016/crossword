@@ -1,0 +1,66 @@
+# Environment variables (NEVER commit real keys)
+.env
+.env.local
+.env.*.local
+*.env
+
+# API keys and secrets
+*.pem
+*.key
+credentials.json
+
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Deno
+.deno/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor directories
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Playwright MCP debug files
+.playwright-mcp/
+
+# Web build artifacts
+web/dist/
+server/dist/
+
+# Local libSQL file (LLM call logs)
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+
+# TypeScript build info
+*.tsbuildinfo
