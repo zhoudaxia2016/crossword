@@ -223,6 +223,55 @@ function gridLegal(grid, gridConstraints) {
   return slotsResult.valid && slotsResult.slots.length > 0;
 }
 
+function validateProvidedGridAndSlots(grid, slots, gridConstraints) {
+  const size = normalizeInteger(gridConstraints?.size, grid.length);
+  const minLength = normalizeInteger(gridConstraints?.minEntryLength, 2);
+  const maxLength = normalizeInteger(gridConstraints?.maxEntryLength, size);
+
+  if (!Array.isArray(grid) || grid.length !== size) {
+    return false;
+  }
+  for (const row of grid) {
+    if (!Array.isArray(row) || row.length !== size) {
+      return false;
+    }
+  }
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return false;
+  }
+
+  for (const slot of slots) {
+    if (
+      !slot ||
+      (slot.direction !== "across" && slot.direction !== "down") ||
+      !Number.isInteger(slot.row) ||
+      !Number.isInteger(slot.col) ||
+      !Number.isInteger(slot.length) ||
+      slot.length < minLength ||
+      slot.length > maxLength
+    ) {
+      return false;
+    }
+
+    for (let index = 0; index < slot.length; index += 1) {
+      const cell = slot.direction === "across"
+        ? { row: slot.row, col: slot.col + index }
+        : { row: slot.row + index, col: slot.col };
+      if (
+        cell.row < 0 ||
+        cell.row >= size ||
+        cell.col < 0 ||
+        cell.col >= size ||
+        grid[cell.row][cell.col] === "#"
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function enumerateNumbering(slots) {
   const starts = new Map();
   const orderedStarts = [...slots]
@@ -333,18 +382,22 @@ function preferenceScore(entry, wordPreferences) {
   if (Array.isArray(wordPreferences?.preferredTags) && wordPreferences.preferredTags.length > 0) {
     const tagSet = new Set(entry.tags);
     const matched = wordPreferences.preferredTags.filter((tag) => tagSet.has(tag)).length;
-    score += matched * 6;
+    score += matched * 8;
   }
 
   if (Array.isArray(wordPreferences?.preferredPos) && wordPreferences.preferredPos.length > 0) {
     if (wordPreferences.preferredPos.includes(entry.pos)) {
-      score += 4;
+      score += 10;
+    } else {
+      score -= 3;
     }
   }
 
   if (Array.isArray(wordPreferences?.preferredLevels) && wordPreferences.preferredLevels.length > 0) {
     if (wordPreferences.preferredLevels.includes(entry.level)) {
-      score += 3;
+      score += 8;
+    } else {
+      score -= 2;
     }
   }
 
@@ -491,6 +544,31 @@ function solveOnePuzzle(context) {
 
   const assignment = Array(slots.length).fill(null);
   const usedWords = new Set();
+  const rarityStatsBySlot = slots.map((slot, slotIndex) => {
+    const rarityStats = new Map();
+    for (const entry of candidatesBySlot[slotIndex]) {
+      for (const crossing of crossings[slotIndex]) {
+        const key = `${crossing.index}:${entry.chars[crossing.index]}`;
+        rarityStats.set(key, (rarityStats.get(key) ?? 0) + 1);
+      }
+    }
+    return rarityStats;
+  });
+  const baseScoreBySlot = slots.map((slot, slotIndex) => {
+    const rarityStats = rarityStatsBySlot[slotIndex];
+    const baseScores = new Map();
+    for (const entry of candidatesBySlot[slotIndex]) {
+      let value = preferenceScore(entry, wordPreferences);
+      for (const crossing of crossings[slotIndex]) {
+        const key = `${crossing.index}:${entry.chars[crossing.index]}`;
+        value -= Math.log((rarityStats.get(key) ?? 0) + 1) * 0.3;
+      }
+      value += ((entry.word.charCodeAt(0) + slotIndex * 17 + puzzleIndex * 29) % 31) * 0.0001;
+      baseScores.set(entry, value);
+    }
+    candidatesBySlot[slotIndex].sort((left, right) => baseScores.get(right) - baseScores.get(left));
+    return baseScores;
+  });
 
   function fits(entry, slotIndex) {
     if (usedWords.has(entry.word)) {
@@ -525,6 +603,9 @@ function solveOnePuzzle(context) {
       if (domain.length === 0) {
         return { slotIndex, domain };
       }
+      if (domain.length === 1) {
+        return { slotIndex, domain };
+      }
       if (
         best === -1 ||
         domain.length < bestDomain.length ||
@@ -542,26 +623,11 @@ function solveOnePuzzle(context) {
   }
 
   function orderCandidates(slotIndex, domain) {
-    const slot = slots[slotIndex];
-    const rarityStats = new Map();
-    for (const entry of candidatesBySlot[slotIndex]) {
-      for (const crossing of crossings[slotIndex]) {
-        const key = `${crossing.index}:${entry.chars[crossing.index]}`;
-        rarityStats.set(key, (rarityStats.get(key) ?? 0) + 1);
-      }
-    }
-
+    const baseScores = baseScoreBySlot[slotIndex];
     return [...domain].sort((left, right) => {
-      const score = (entry) => {
-        let value = preferenceScore(entry, wordPreferences) - (globalUsage.get(entry.word) ?? 0) * 5;
-        for (const crossing of crossings[slotIndex]) {
-          const key = `${crossing.index}:${entry.chars[crossing.index]}`;
-          value -= Math.log((rarityStats.get(key) ?? 0) + 1) * 0.3;
-        }
-        value += ((entry.word.charCodeAt(0) + slotIndex * 17 + puzzleIndex * 29) % 31) * 0.0001;
-        return value;
-      };
-      return score(right) - score(left);
+      const leftScore = baseScores.get(left) - (globalUsage.get(left.word) ?? 0) * 5;
+      const rightScore = baseScores.get(right) - (globalUsage.get(right.word) ?? 0) * 5;
+      return rightScore - leftScore;
     });
   }
 
@@ -876,15 +942,13 @@ function fillGrid(input) {
   const slots = Array.isArray(input?.slots) ? input.slots.map((slot) => ({ ...slot })) : [];
   const count = normalizeInteger(input?.count, 1);
 
-  if (!gridLegal(grid, gridConstraints)) {
+  if (!validateProvidedGridAndSlots(grid, slots, gridConstraints)) {
     return { size, grid, slots, puzzles: [] };
   }
 
   const lexicon = filterLexicon(input.lexicon ?? [], input.wordConstraints, gridConstraints);
   const entriesByLength = createLengthBuckets(lexicon);
-  const positionIndexByLength = buildPositionIndex(entriesByLength);
   const crossings = buildCrossings(slots);
-  const slotNeighbors = buildSlotNeighbors(crossings);
   const globalUsage = new Map();
   const puzzles = [];
   const seenSignatures = new Set();
@@ -893,12 +957,10 @@ function fillGrid(input) {
     const assignment = solveOnePuzzle({
       slots,
       entriesByLength,
-      positionIndexByLength,
       crossings,
       wordPreferences: input.wordPreferences ?? {},
       globalUsage,
       puzzleIndex,
-      slotNeighbors,
     });
 
     if (!assignment) {
@@ -913,12 +975,10 @@ function fillGrid(input) {
       const retryAssignment = solveOnePuzzle({
         slots,
         entriesByLength,
-        positionIndexByLength,
         crossings,
         wordPreferences: input.wordPreferences ?? {},
         globalUsage,
         puzzleIndex: puzzleIndex + count,
-        slotNeighbors,
       });
       if (!retryAssignment) {
         break;

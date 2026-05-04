@@ -1,4 +1,5 @@
 import type { Direction, PlacedEntry, Puzzle, Slot } from "./types";
+import { normalizeKanaText, toKanaCells } from "./kana";
 
 export interface CellPosition {
   row: number;
@@ -14,7 +15,6 @@ export interface CellState {
   expected?: string;
   actual?: string;
   isCorrect: boolean;
-  isConflict: boolean;
   labels: string[];
 }
 
@@ -56,7 +56,7 @@ export function deriveSlotsWithNumbers(slots: Slot[]) {
 export function buildExpectedCellMap(puzzle: Puzzle) {
   const map = new Map<string, string>();
   for (const entry of puzzle.entries) {
-    const chars = Array.from(entry.reading);
+    const chars = toKanaCells(entry.reading);
     for (let index = 0; index < chars.length; index += 1) {
       const row = entry.direction === "down" ? entry.row + index : entry.row;
       const col = entry.direction === "across" ? entry.col + index : entry.col;
@@ -97,30 +97,21 @@ export function buildBoardState(
   size: number,
   grid: string[][],
   puzzle: Puzzle,
-  answers: Record<string, string>,
+  cellValues: Record<string, string>,
 ) {
   const expectedMap = buildExpectedCellMap(puzzle);
-  const contributed = new Map<string, string[]>();
   const labels = new Map<string, string[]>();
 
   for (const entry of puzzle.entries) {
-    const key = entryKey(entry);
-    const answer = answers[key] ?? "";
-    const chars = Array.from(answer);
-    for (let index = 0; index < entry.reading.length; index += 1) {
+    const expectedChars = toKanaCells(entry.reading);
+    for (let index = 0; index < expectedChars.length; index += 1) {
       const row = entry.direction === "down" ? entry.row + index : entry.row;
       const col = entry.direction === "across" ? entry.col + index : entry.col;
       const coord = cellKey({ row, col });
-      if (!contributed.has(coord)) {
-        contributed.set(coord, []);
-      }
       if (!labels.has(coord)) {
         labels.set(coord, []);
       }
       labels.get(coord)!.push(`${entry.number}${entry.direction === "across" ? "A" : "D"}`);
-      if (chars[index]) {
-        contributed.get(coord)!.push(chars[index]);
-      }
     }
   }
 
@@ -130,25 +121,20 @@ export function buildBoardState(
         return {
           isBlack: true,
           isCorrect: false,
-          isConflict: false,
           labels: [],
         };
       }
 
       const coord = cellKey({ row, col });
       const expected = expectedMap.get(coord);
-      const typedChars = contributed.get(coord) ?? [];
-      const distinct = [...new Set(typedChars)];
-      const actual = distinct.length === 1 ? distinct[0] : distinct.length > 1 ? "!" : undefined;
-      const isConflict = distinct.length > 1;
-      const isCorrect = !isConflict && expected !== undefined && actual === expected;
+      const actual = cellValues[coord];
+      const isCorrect = expected !== undefined && actual === expected;
 
       return {
         isBlack: false,
         expected,
         actual,
         isCorrect,
-        isConflict,
         labels: labels.get(coord) ?? [],
       };
     }),
@@ -164,4 +150,55 @@ export function buildBoardState(
     playableCellCount,
     percent,
   };
+}
+
+export function isSolved(entry: PlacedEntry, answer: string) {
+  return normalizeKanaText(answer) === normalizeKanaText(entry.reading);
+}
+
+export function getSlotCurrentText(slot: Slot, cellValues: Record<string, string>) {
+  const chars = [];
+  for (let index = 0; index < slot.length; index += 1) {
+    const row = slot.direction === "down" ? slot.row + index : slot.row;
+    const col = slot.direction === "across" ? slot.col + index : slot.col;
+    const char = cellValues[cellKey({ row, col })];
+    if (char) {
+      chars.push(char);
+    }
+  }
+  return chars.join("");
+}
+
+export function getSlotResolvedText(slot: Slot, cellValues: Record<string, string>) {
+  const chars = [];
+  for (let index = 0; index < slot.length; index += 1) {
+    const row = slot.direction === "down" ? slot.row + index : slot.row;
+    const col = slot.direction === "across" ? slot.col + index : slot.col;
+    const char = cellValues[cellKey({ row, col })];
+    chars.push(char ?? "");
+  }
+  return chars.join("");
+}
+
+export function applySlotDraft(
+  slot: Slot,
+  draft: string,
+  currentCells: Record<string, string>,
+) {
+  const nextCells = { ...currentCells };
+  const chars = toKanaCells(draft);
+
+  for (let index = 0; index < slot.length; index += 1) {
+    const row = slot.direction === "down" ? slot.row + index : slot.row;
+    const col = slot.direction === "across" ? slot.col + index : slot.col;
+    const key = cellKey({ row, col });
+    const char = chars[index];
+    if (char) {
+      nextCells[key] = char;
+    } else {
+      delete nextCells[key];
+    }
+  }
+
+  return nextCells;
 }

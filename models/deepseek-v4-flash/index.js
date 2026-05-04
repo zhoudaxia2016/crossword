@@ -236,6 +236,44 @@ function buildCandidates(lexiconByLen, slots, wc) {
   return map;
 }
 
+// ── Word preferences (soft score) ─────────────────────────────────
+
+function computePreferenceScore(entry, wp) {
+  if (!wp) return 0;
+  let matchCount = 0, total = 0;
+
+  if (wp.preferredTags?.length) {
+    total++;
+    const et = new Set(entry.tags ?? []);
+    if (wp.preferredTags.some(t => et.has(t))) matchCount++;
+  }
+
+  if (wp.preferredPos?.length) {
+    total++;
+    if (wp.preferredPos.includes(entry.pos)) matchCount++;
+  }
+
+  if (wp.preferredLevels?.length) {
+    total++;
+    if (wp.preferredLevels.includes(entry.level)) matchCount++;
+  }
+
+  return total === 0 ? 0 : matchCount / total;
+}
+
+function sortByPreference(candidates, wp) {
+  for (const [k, list] of candidates) {
+    const scored = list.map(e => ({
+      entry: e,
+      score: wp ? computePreferenceScore(e, wp) : 0,
+      jlpt: jlptRank(e.level) ?? 0,
+    }));
+    // sort by: preference score (desc) → JLPT rank (desc, easier first) → reading length (asc)
+    scored.sort((a, b) => b.score - a.score || b.jlpt - a.jlpt || a.entry.reading.length - b.entry.reading.length);
+    candidates.set(k, scored.map(s => s.entry));
+  }
+}
+
 // ── RNG ──────────────────────────────────────────────────────────
 
 function createRng(seed) {
@@ -259,12 +297,14 @@ function createRng(seed) {
 
 // ── CSP solver ───────────────────────────────────────────────────
 
-function solveCSP(slots, adj, candidates, rng) {
+function solveCSP(slots, adj, candidates, rng, nodeLimit) {
   const assigned = new Map();
   const usedWords = new Set();
+  let nodeCount = 0;
 
   function search(remaining) {
     if (assigned.size === slots.length) return assigned;
+    if (nodeLimit && ++nodeCount > nodeLimit) return null;
 
     let bestKey = null, bestLen = Infinity, bestList = null;
     for (const [k, list] of remaining) {
@@ -364,12 +404,15 @@ export function generateGrid(input) {
 }
 
 export function fillGrid(input) {
-  const { grid, slots, lexicon, gridConstraints, wordConstraints = {}, count } = input;
+  const { grid, slots, lexicon, gridConstraints, wordConstraints = {}, wordPreferences, count } = input;
   const size = gridConstraints.size;
 
   const adj = buildAdj(slots);
   const byLen = indexLexicon(lexicon);
   const baseCandidates = buildCandidates(byLen, slots, wordConstraints);
+
+  // sort candidates by preference (soft optimization, solver still falls back)
+  sortByPreference(baseCandidates, wordPreferences);
 
   for (const [, list] of baseCandidates) {
     if (list.length === 0) return { size, grid, slots, puzzles: [] };
@@ -380,11 +423,30 @@ export function fillGrid(input) {
 
   const puzzles = [];
 
-  // try up to `count * 5` times to produce `count` distinct puzzles
-  for (let attempt = 0; attempt < count * 5 && puzzles.length < count; attempt++) {
+  // Two-phase approach:
+  // 1. Build preferred-only candidates (where enough exist)
+  const prefCandidates = new Map();
+  let hasAnyPrefs = false;
+  for (const [k, list] of baseCandidates) {
+    if (wordPreferences) {
+      const prefs = list.filter(e => computePreferenceScore(e, wordPreferences) > 0);
+      if (prefs.length >= 3) { prefCandidates.set(k, prefs); hasAnyPrefs = true; continue; }
+    }
+    prefCandidates.set(k, list);
+  }
+
+  // try up to `count * 8` times to produce `count` distinct puzzles
+  for (let attempt = 0; attempt < count * 8 && puzzles.length < count; attempt++) {
+    // Phase 1 (first 3*count attempts): use preferred-only candidates
+    const cset = hasAnyPrefs && attempt < count * 3 ? prefCandidates : baseCandidates;
     const rng = createRng(attempt * 104729 + 1);
-    const result = solveCSP(slots, adj, baseCandidates, rng);
-    if (!result) break;
+    const limit = hasAnyPrefs && cset === prefCandidates ? 20000 : 0;
+    const result = solveCSP(slots, adj, cset, rng, limit);
+    if (!result) {
+      // preferred phase may hit the node limit; continue to fallback
+      if (cset !== prefCandidates) break;
+      continue;
+    }
 
     const entries = [];
     for (const [k, entry] of result) {

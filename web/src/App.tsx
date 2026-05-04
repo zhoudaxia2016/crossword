@@ -1,22 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, startTransition, useEffect, useMemo, useState } from "react";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 import { Input } from "./components/ui/input";
 import { groupResults, loadManifest, loadResult } from "./data";
 import {
+  applySlotDraft,
   buildBoardState,
   deriveSlotsWithNumbers,
   entryKey,
   getPrimarySlotAtCell,
+  getSlotCurrentText,
+  getSlotResolvedText,
   isCellInSlot,
+  isSolved,
   slotKey,
   type SlotWithNumber,
 } from "./game";
 import { cn } from "./lib/utils";
 import type { PlacedEntry, ResultFile, ResultRecord } from "./types";
 
-type AnswerStore = Record<string, Record<number, Record<string, string>>>;
+type CellStore = Record<string, Record<number, Record<string, string>>>;
 
 function formatSummary(record: ResultRecord) {
   const summary = record.summary;
@@ -28,6 +32,59 @@ function buildEntryMap(entries: PlacedEntry[]) {
   return new Map(entries.map((entry) => [slotKey(entry.direction, entry.number), entry]));
 }
 
+interface AnswerEditorProps {
+  selectedId: string;
+  puzzleIndex: number;
+  selectedEntry?: PlacedEntry;
+  selectedSlot?: SlotWithNumber;
+  currentText: string;
+  isSolved: boolean;
+  onConfirm: (draft: string) => void;
+}
+
+const AnswerEditor = memo(function AnswerEditor({
+  selectedId,
+  puzzleIndex,
+  selectedEntry,
+  selectedSlot,
+  currentText,
+  isSolved,
+  onConfirm,
+}: AnswerEditorProps) {
+  const [draftAnswer, setDraftAnswer] = useState("");
+
+  useEffect(() => {
+    setDraftAnswer(currentText);
+  }, [selectedId, puzzleIndex, selectedEntry?.number, selectedEntry?.direction, currentText]);
+
+  return (
+    <Card className="answer-panel">
+      <CardHeader>
+        <CardTitle>{selectedEntry ? `${selectedEntry.number} ${selectedEntry.direction === "across" ? "Across" : "Down"}` : "Answer"}</CardTitle>
+      </CardHeader>
+      <CardContent className="answer-panel__body">
+        {isSolved && selectedEntry ? <div className="answer-word">{selectedEntry.word}</div> : null}
+        <div className="answer-clue">{selectedEntry?.clue ?? ""}</div>
+        <Input
+          value={draftAnswer}
+          onChange={(event) => {
+            setDraftAnswer(event.target.value);
+          }}
+          disabled={!selectedEntry}
+          placeholder=""
+        />
+        <Button
+          onClick={() => onConfirm(draftAnswer)}
+          type="button"
+          disabled={!selectedSlot}
+        >
+          确定
+        </Button>
+      </CardContent>
+    </Card>
+  );
+});
+
 export default function App() {
   const [records, setRecords] = useState<ResultRecord[]>([]);
   const [selectedData, setSelectedData] = useState<ResultFile | null>(null);
@@ -35,7 +92,7 @@ export default function App() {
   const [selectedPuzzleIndex, setSelectedPuzzleIndex] = useState(0);
   const [selectedSlotKey, setSelectedSlotKey] = useState("");
   const [hoveredSlotKey, setHoveredSlotKey] = useState("");
-  const [answers, setAnswers] = useState<AnswerStore>({});
+  const [cellAnswers, setCellAnswers] = useState<CellStore>({});
   const [error, setError] = useState("");
   const [openTimes, setOpenTimes] = useState<Record<string, boolean>>({});
   const [openModels, setOpenModels] = useState<Record<string, boolean>>({});
@@ -104,17 +161,20 @@ export default function App() {
     setHoveredSlotKey("");
   }, [puzzleIndex]);
 
-  const taskAnswers = answers[selectedId] ?? {};
-  const puzzleAnswers = taskAnswers[puzzleIndex] ?? {};
-  const boardState =
-    selectedData && selectedPuzzle
-      ? buildBoardState(
-          selectedData.output?.size ?? selectedData.input.grid.length,
-          selectedData.output?.grid ?? selectedData.input.grid,
-          selectedPuzzle,
-          puzzleAnswers,
-        )
-      : null;
+  const taskAnswers = cellAnswers[selectedId] ?? {};
+  const puzzleCells = taskAnswers[puzzleIndex] ?? {};
+  const boardState = useMemo(
+    () =>
+      selectedData && selectedPuzzle
+        ? buildBoardState(
+            selectedData.output?.size ?? selectedData.input.grid.length,
+            selectedData.output?.grid ?? selectedData.input.grid,
+            selectedPuzzle,
+            puzzleCells,
+          )
+        : null,
+    [selectedData, selectedPuzzle, puzzleCells],
+  );
 
   const selectedEntry = selectedSlotKey ? entryMap.get(selectedSlotKey) : undefined;
   const selectedSlot = selectedSlotKey
@@ -123,36 +183,25 @@ export default function App() {
   const hoveredSlot = hoveredSlotKey
     ? numberedSlots.find((slot) => slotKey(slot.direction, slot.number) === hoveredSlotKey)
     : undefined;
-
-  function updateAnswer(entry: PlacedEntry, value: string) {
-    setAnswers((current) => ({
-      ...current,
-      [selectedId]: {
-        ...(current[selectedId] ?? {}),
-        [puzzleIndex]: {
-          ...((current[selectedId] ?? {})[puzzleIndex] ?? {}),
-          [entryKey(entry)]: value,
-        },
-      },
-    }));
-  }
+  const currentSlotText = selectedSlot ? getSlotCurrentText(selectedSlot, puzzleCells) : "";
 
   function revealAllAnswers() {
     if (!selectedPuzzle) return;
-    const nextAnswers = Object.fromEntries(
-      selectedPuzzle.entries.map((entry) => [entryKey(entry), entry.reading]),
-    );
-    setAnswers((current) => ({
+    const nextCells = selectedPuzzle.entries.reduce((cells, entry) => {
+      const slot = numberedSlots.find((item) => item.direction === entry.direction && item.number === entry.number);
+      return slot ? applySlotDraft(slot, entry.reading, cells) : cells;
+    }, { ...puzzleCells });
+    setCellAnswers((current) => ({
       ...current,
       [selectedId]: {
         ...(current[selectedId] ?? {}),
-        [puzzleIndex]: nextAnswers,
+        [puzzleIndex]: nextCells,
       },
     }));
   }
 
   function resetPuzzle() {
-    setAnswers((current) => ({
+    setCellAnswers((current) => ({
       ...current,
       [selectedId]: {
         ...(current[selectedId] ?? {}),
@@ -174,6 +223,24 @@ export default function App() {
     if (!slot) return;
     setSelectedSlotKey(slotKey(slot.direction, slot.number));
   }
+
+  function confirmDraft(draftAnswer: string) {
+    if (!selectedSlot) return;
+    const nextCells = applySlotDraft(selectedSlot, draftAnswer, puzzleCells);
+    startTransition(() => {
+      setCellAnswers((current) => ({
+        ...current,
+        [selectedId]: {
+          ...(current[selectedId] ?? {}),
+          [puzzleIndex]: nextCells,
+        },
+      }));
+    });
+  }
+
+  const selectedSolved = selectedEntry && selectedSlot
+    ? isSolved(selectedEntry, getSlotResolvedText(selectedSlot, puzzleCells))
+    : false;
 
   return (
     <div className="app-shell">
@@ -304,7 +371,6 @@ export default function App() {
                             "board-cell",
                             cell.isBlack && "is-black",
                             cell.isCorrect && "is-correct",
-                            cell.isConflict && "is-conflict",
                             selectedSlot && isCellInSlot(selectedSlot, row, col) && "is-selected",
                             hoveredSlot && isCellInSlot(hoveredSlot, row, col) && "is-hovered",
                           )}
@@ -323,22 +389,15 @@ export default function App() {
               </Card>
 
               <div className="clue-panel">
-                <Card className="answer-panel">
-                  <CardHeader>
-                    <CardTitle>{selectedEntry ? `${selectedEntry.number} ${selectedEntry.direction === "across" ? "Across" : "Down"}` : "Answer"}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="answer-panel__body">
-                    <div className="answer-clue">{selectedEntry?.clue ?? ""}</div>
-                    <Input
-                      value={selectedEntry ? puzzleAnswers[entryKey(selectedEntry)] ?? "" : ""}
-                      onChange={(event) => {
-                        if (selectedEntry) updateAnswer(selectedEntry, event.target.value);
-                      }}
-                      disabled={!selectedEntry}
-                      placeholder={selectedEntry ? selectedEntry.reading.replace(/./gu, "・") : ""}
-                    />
-                  </CardContent>
-                </Card>
+                <AnswerEditor
+                  selectedId={selectedId}
+                  puzzleIndex={puzzleIndex}
+                  selectedEntry={selectedEntry}
+                  selectedSlot={selectedSlot}
+                  currentText={currentSlotText}
+                  isSolved={selectedSolved}
+                  onConfirm={confirmDraft}
+                />
               </div>
             </section>
           </>

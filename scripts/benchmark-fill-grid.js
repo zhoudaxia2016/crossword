@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import scoreFilledPuzzles from "./fill-score.js";
+import { normalizeKanaText } from "./kana.js";
 
 const MODELS_DIR = resolve("models");
 const RESULTS_DIR = resolve("results");
@@ -11,6 +12,9 @@ const DEFAULT_LEXICON_XLSX = resolve("词汇表.xlsx");
 const DEFAULT_COUNT = 5;
 const RUN_ID = formatRunId(new Date());
 const RUN_RESULTS_DIR = join(RESULTS_DIR, RUN_ID);
+const progressState = new Map();
+let progressOrder = [];
+let renderedProgressLines = 0;
 
 function average(values) {
   if (values.length === 0) {
@@ -60,16 +64,52 @@ function renderProgressBar(completed, total, width = 24) {
   return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
 }
 
-function printModelProgress(modelName, completed, total) {
-  const line = `${modelName}: ${renderProgressBar(completed, total)} ${completed}/${total}`;
-  if (process.stdout.isTTY) {
-    process.stdout.write(`\r${line}`);
-    if (completed >= total) {
-      process.stdout.write("\n");
+function renderProgressLines() {
+  return progressOrder.map((modelName) => {
+    const state = progressState.get(modelName) ?? { completed: 0, total: 1 };
+    return `${modelName}: ${renderProgressBar(state.completed, state.total)} ${state.completed}/${state.total}`;
+  });
+}
+
+function redrawProgress() {
+  const lines = renderProgressLines();
+
+  if (!process.stdout.isTTY) {
+    for (const line of lines) {
+      console.log(line);
     }
     return;
   }
-  console.log(line);
+
+  if (renderedProgressLines > 0) {
+    for (let index = 0; index < renderedProgressLines; index += 1) {
+      process.stdout.write("\x1b[1A\x1b[2K");
+    }
+  }
+
+  process.stdout.write(lines.join("\n"));
+  process.stdout.write("\n");
+  renderedProgressLines = lines.length;
+}
+
+function initializeProgress(models, total) {
+  progressOrder = models.map((model) => model.name);
+  progressState.clear();
+  for (const model of models) {
+    progressState.set(model.name, { completed: 0, total });
+  }
+  redrawProgress();
+}
+
+function printModelProgress(modelName, completed, total) {
+  progressState.set(modelName, { completed, total });
+  redrawProgress();
+}
+
+function finishProgress() {
+  if (process.stdout.isTTY && renderedProgressLines > 0) {
+    renderedProgressLines = 0;
+  }
 }
 
 function buildGridFromSlots(size, slots) {
@@ -327,7 +367,7 @@ function loadLexiconFromXlsx(xlsxPath) {
     .slice(1)
     .map((row) => {
       const word = row[wordIndex]?.trim();
-      const reading = row[readingIndex]?.trim();
+      const reading = normalizeKanaText(row[readingIndex]?.trim());
 
       if (!word || !reading) {
         return null;
@@ -717,20 +757,21 @@ async function main() {
   console.log(`grids: ${tasks.length} from ${resolve(args["grids-dir"])}`);
   console.log(`lexicon: ${lexicon.length} entries from ${lexiconXlsx}`);
   console.log(`results: ${RUN_RESULTS_DIR}`);
+  initializeProgress(models, tasks.length);
 
-  const allResults = [];
-
-  for (const modelInfo of models) {
-    const model = await loadModel(modelInfo.entry);
-    const result = await benchmarkModel(model, modelInfo.name, tasks, lexicon, cliOptions);
-    const summary = {
-      name: modelInfo.name,
-      ...result,
-    };
-    allResults.push(summary);
-  }
+  const allResults = await Promise.all(
+    models.map(async (modelInfo) => {
+      const model = await loadModel(modelInfo.entry);
+      const result = await benchmarkModel(model, modelInfo.name, tasks, lexicon, cliOptions);
+      return {
+        name: modelInfo.name,
+        ...result,
+      };
+    }),
+  );
 
   computeTimeScores(allResults);
+  finishProgress();
 
   for (const summary of allResults) {
     printModelSummary(summary);

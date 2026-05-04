@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { normalizeKanaText, toKanaCells } from "./kana.js";
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -7,7 +10,7 @@ function slotKey(slot) {
 }
 
 function entryKey(entry) {
-  return `${entry.word}::${entry.reading}`;
+  return `${entry.word}::${normalizeKanaText(entry.reading)}`;
 }
 
 function entrySlotMatch(entry, slot) {
@@ -81,7 +84,7 @@ function validatePuzzle({
   }
 
   for (const entry of entries) {
-    const readingChars = Array.from(entry.reading ?? "");
+    const readingChars = toKanaCells(entry.reading ?? "");
     const matchedSlot = slots.find((slot) => entrySlotMatch(entry, slot));
 
     if (!matchedSlot) {
@@ -373,4 +376,3 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const result = scoreFilledPuzzles(input);
   console.log(JSON.stringify(result, null, 2));
 }
-import { readFileSync } from "node:fs";
