@@ -18,12 +18,6 @@ export interface GridConstraints {
   maxEntryLength?: number;
 }
 
-export interface WordConstraints {
-  maxJlptLevel?: string;
-  allowedPos?: string[];
-  tags?: string[];
-}
-
 export interface WordPreferences {
   preferredTags?: string[];
   preferredPos?: string[];
@@ -59,7 +53,6 @@ export interface BenchmarkModule {
     slots: Slot[];
     lexicon: LexiconEntry[];
     gridConstraints: GridConstraints;
-    wordConstraints?: WordConstraints;
     wordPreferences?: WordPreferences;
     count: number;
   }): {
@@ -74,7 +67,7 @@ export interface BenchmarkModule {
   generateCrossword(input: {
     lexicon: LexiconEntry[];
     gridConstraints: GridConstraints;
-    wordConstraints?: WordConstraints;
+    wordPreferences?: WordPreferences;
   }): {
     size: number;
     grid: GridMatrix;

@@ -21,34 +21,6 @@ function entrySlotMatch(entry, slot) {
   );
 }
 
-function jlptRank(level) {
-  if (typeof level !== "string") {
-    return null;
-  }
-  const match = level.match(/^N([1-5])$/i);
-  if (!match) {
-    return null;
-  }
-  return Number(match[1]);
-}
-
-function levelAllowed(level, maxJlptLevel) {
-  const levelRank = jlptRank(level);
-  const maxRank = jlptRank(maxJlptLevel);
-  if (levelRank === null || maxRank === null) {
-    return true;
-  }
-  return levelRank >= maxRank;
-}
-
-function hasAllTags(entry, requiredTags = []) {
-  if (!requiredTags.length) {
-    return true;
-  }
-  const tags = new Set(entry.tags ?? []);
-  return requiredTags.every((tag) => tags.has(tag));
-}
-
 function getSlotCell(slot, index) {
   if (slot.direction === "across") {
     return { row: slot.row, col: slot.col + index };
@@ -70,7 +42,6 @@ function validatePuzzle({
   puzzle,
   slots,
   lexiconIndex,
-  wordConstraints = {},
   size,
 }) {
   const errors = [];
@@ -106,20 +77,6 @@ function validatePuzzle({
     const lexiconEntry = lexiconIndex.get(entryKey(entry));
     if (!lexiconEntry) {
       errors.push(`entry not found in lexicon: ${entry.word} / ${entry.reading}`);
-    } else {
-      if (!levelAllowed(lexiconEntry.level, wordConstraints.maxJlptLevel)) {
-        errors.push(`jlpt constraint failed: ${entry.word}`);
-      }
-      if (
-        Array.isArray(wordConstraints.allowedPos) &&
-        wordConstraints.allowedPos.length > 0 &&
-        !wordConstraints.allowedPos.includes(lexiconEntry.pos)
-      ) {
-        errors.push(`pos constraint failed: ${entry.word}`);
-      }
-      if (!hasAllTags(lexiconEntry, wordConstraints.tags ?? [])) {
-        errors.push(`tag constraint failed: ${entry.word}`);
-      }
     }
 
     if (seenWords.has(entry.word)) {
@@ -279,7 +236,6 @@ export function scoreFilledPuzzles({
   slots,
   lexicon,
   puzzles,
-  wordConstraints = {},
   wordPreferences = {},
   expectedCount,
 }) {
@@ -302,7 +258,6 @@ export function scoreFilledPuzzles({
       puzzle,
       slots,
       lexiconIndex,
-      wordConstraints,
       size,
     });
 

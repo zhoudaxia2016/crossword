@@ -497,15 +497,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
     const input = {
       ...task.input,
       lexicon,
-      wordConstraints: {
-        maxJlptLevel: cliOptions.maxJlptLevel,
-        allowedPos: cliOptions.allowedPos,
-        tags: cliOptions.tags,
-      },
       wordPreferences: {
-        preferredTags: cliOptions.preferredTags,
-        preferredPos: cliOptions.preferredPos,
-        preferredLevels: cliOptions.preferredLevels,
+        preferredTags: cliOptions.tags,
+        preferredPos: cliOptions.pos,
+        preferredLevels: cliOptions.levels,
       },
       count: cliOptions.count,
     };
@@ -550,7 +545,6 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         slots: output.slots,
         lexicon,
         puzzles: output.puzzles,
-        wordConstraints: input.wordConstraints,
         wordPreferences: input.wordPreferences,
         expectedCount: input.count,
       });
@@ -640,9 +634,9 @@ function printUsage() {
   console.log("usage:");
   console.log("  node scripts/benchmark-fill-grid.js --tasks-dir <dir> [--lexicon-xlsx <file>]");
   console.log("    [--size <n>] [--minEntryLength <n>] [--maxEntryLength <n>]");
-  console.log("    [--maxJlptLevel <level>] [--allowedPos <a,b,c>] [--tags <a,b,c>]");
+  console.log("    [--levels <a,b,c>] [--pos <a,b,c>] [--tags <a,b,c>]");
   console.log("    [--model <name>]");
-  console.log("    [--preferredTags <a,b,c>] [--preferredPos <a,b,c>] [--preferredLevels <a,b,c>] [--count <n>]");
+  console.log("    [--count <n>]");
   console.log("");
   console.log("examples:");
   console.log("  node scripts/benchmark-fill-grid.js --tasks-dir tasks/fill-grid/site-6x6 --count 5");
@@ -746,12 +740,9 @@ async function main() {
     size: args.size ? Number(args.size) : undefined,
     minEntryLength: args.minEntryLength ? Number(args.minEntryLength) : undefined,
     maxEntryLength: args.maxEntryLength ? Number(args.maxEntryLength) : undefined,
-    maxJlptLevel: args.maxJlptLevel ?? undefined,
-    allowedPos: parseListArg(args.allowedPos),
+    levels: parseListArg(args.levels),
+    pos: parseListArg(args.pos),
     tags: parseListArg(args.tags),
-    preferredTags: parseListArg(args.preferredTags),
-    preferredPos: parseListArg(args.preferredPos),
-    preferredLevels: parseListArg(args.preferredLevels),
     count: args.count ? Number(args.count) : DEFAULT_COUNT,
   };
 
