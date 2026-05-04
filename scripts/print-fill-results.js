@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 
 import { printFilledGridWithHeaders } from "./print-grid.js";
 
+const TASKS_ROOT = resolve("tasks/fill-grid");
+
 function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
@@ -12,10 +14,22 @@ function round(value) {
 }
 
 function listResultFiles(dir) {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".json"))
-    .sort()
-    .map((name) => join(dir, name));
+  const files = [];
+
+  function walk(currentDir) {
+    for (const name of readdirSync(currentDir).sort()) {
+      const fullPath = join(currentDir, name);
+      const stats = statSync(fullPath);
+      if (stats.isDirectory()) {
+        walk(fullPath);
+      } else if (name.endsWith(".json")) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  walk(dir);
+  return files;
 }
 
 function summarize(result) {
@@ -37,10 +51,11 @@ function summarize(result) {
 
 function printResult(resultFile) {
   const result = loadJson(resultFile);
-  const { input, output } = result;
+  const taskFile = join(TASKS_ROOT, `${result.taskId}.json`);
+  const task = loadJson(taskFile);
   const summary = summarize(result);
-  const puzzles = output?.puzzles ?? [];
-  const title = result.task ?? resultFile;
+  const puzzles = result.puzzles ?? [];
+  const title = result.taskName ?? task.taskName ?? result.taskId ?? resultFile;
 
   console.log(`\n=== ${title} ===`);
   console.log(
@@ -67,9 +82,9 @@ function printResult(resultFile) {
     console.log(`\npuzzle ${index + 1}`);
     console.log(
       printFilledGridWithHeaders({
-        size: output?.size ?? input?.gridConstraints?.size,
-        grid: output?.grid ?? input?.grid,
-        slots: output?.slots ?? input?.slots,
+        size: task.size,
+        grid: task.grid,
+        slots: task.slots,
         entries: puzzle.entries ?? [],
       }),
     );

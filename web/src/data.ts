@@ -1,4 +1,4 @@
-import type { ResultRecord } from "./types";
+import type { LoadedResult, ResultRecord, ResultFile, TaskFile } from "./types";
 
 export function groupResults(records: ResultRecord[]) {
   return records.reduce<
@@ -45,10 +45,23 @@ export async function loadManifest() {
   });
 }
 
-export async function loadResult(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to load result: ${url}`);
+export async function loadResult(record: ResultRecord): Promise<LoadedResult> {
+  const [taskResponse, resultResponse] = await Promise.all([
+    fetch(record.taskUrl),
+    fetch(record.resultUrl),
+  ]);
+
+  if (!taskResponse.ok) {
+    throw new Error(`Failed to load task: ${record.taskUrl}`);
   }
-  return response.json();
+  if (!resultResponse.ok) {
+    throw new Error(`Failed to load result: ${record.resultUrl}`);
+  }
+
+  const [task, result] = (await Promise.all([
+    taskResponse.json(),
+    resultResponse.json(),
+  ])) as [TaskFile, ResultFile];
+
+  return { task, result };
 }

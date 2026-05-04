@@ -18,7 +18,7 @@ import {
   type SlotWithNumber,
 } from "./game";
 import { cn } from "./lib/utils";
-import type { PlacedEntry, ResultFile, ResultRecord } from "./types";
+import type { LoadedResult, PlacedEntry, ResultRecord } from "./types";
 
 type CellStore = Record<string, Record<number, Record<string, string>>>;
 
@@ -87,7 +87,7 @@ const AnswerEditor = memo(function AnswerEditor({
 
 export default function App() {
   const [records, setRecords] = useState<ResultRecord[]>([]);
-  const [selectedData, setSelectedData] = useState<ResultFile | null>(null);
+  const [selectedData, setSelectedData] = useState<LoadedResult | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedPuzzleIndex, setSelectedPuzzleIndex] = useState(0);
   const [selectedSlotKey, setSelectedSlotKey] = useState("");
@@ -120,7 +120,7 @@ export default function App() {
       return;
     }
 
-    loadResult(selectedRecord.url)
+    loadResult(selectedRecord)
       .then((data) => {
         setSelectedData(data);
         setError("");
@@ -131,10 +131,10 @@ export default function App() {
   }, [selectedRecord]);
 
   const groupedResults = useMemo(() => groupResults(records), [records]);
-  const puzzles = selectedData?.output?.puzzles ?? [];
+  const puzzles = selectedData?.result.puzzles ?? [];
   const puzzleIndex = Math.min(selectedPuzzleIndex, Math.max(0, puzzles.length - 1));
   const selectedPuzzle = puzzles[puzzleIndex];
-  const slots = selectedData?.output?.slots ?? selectedData?.input.slots ?? [];
+  const slots = selectedData?.task.slots ?? [];
   const numberedSlots = useMemo(() => deriveSlotsWithNumbers(slots), [slots]);
   const entryMap = useMemo(() => buildEntryMap(selectedPuzzle?.entries ?? []), [selectedPuzzle]);
 
@@ -167,8 +167,8 @@ export default function App() {
     () =>
       selectedData && selectedPuzzle
         ? buildBoardState(
-            selectedData.output?.size ?? selectedData.input.grid.length,
-            selectedData.output?.grid ?? selectedData.input.grid,
+            selectedData.task.size ?? selectedData.task.grid.length,
+            selectedData.task.grid,
             selectedPuzzle,
             puzzleCells,
           )
@@ -351,11 +351,11 @@ export default function App() {
                   <div
                     className="crossword-board"
                     style={{
-                      gridTemplateColumns: `repeat(${selectedData.output?.size ?? selectedData.input.grid.length}, minmax(0, 1fr))`,
+                      gridTemplateColumns: `repeat(${selectedData.task.size ?? selectedData.task.grid.length}, minmax(0, 1fr))`,
                     }}
                   >
                     {boardState.cells.flat().map((cell, index) => {
-                      const size = selectedData.output?.size ?? selectedData.input.grid.length;
+                      const size = selectedData.task.size ?? selectedData.task.grid.length;
                       const row = Math.floor(index / size);
                       const col = index % size;
                       const startLabels = numberedSlots

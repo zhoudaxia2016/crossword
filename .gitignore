@@ -42,6 +42,9 @@ Thumbs.db
 .DS_Store?
 ._*
 
+# Benchmark results
+results/
+
 # Test coverage
 coverage/
 

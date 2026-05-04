@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import scoreFilledPuzzles from "./fill-score.js";
@@ -8,6 +8,7 @@ import { normalizeKanaText } from "./kana.js";
 
 const MODELS_DIR = resolve("models");
 const RESULTS_DIR = resolve("results");
+const TASKS_ROOT = resolve("tasks/fill-grid");
 const DEFAULT_LEXICON_XLSX = resolve("词汇表.xlsx");
 const DEFAULT_COUNT = 5;
 const RUN_ID = formatRunId(new Date());
@@ -155,11 +156,10 @@ function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function saveModelTaskResult(modelName, taskName, payload) {
+function saveModelTaskResult(modelName, taskId, payload) {
   const modelDir = join(RUN_RESULTS_DIR, modelName);
-  mkdirSync(modelDir, { recursive: true });
-  const safeTaskName = String(taskName).replace(/[^a-zA-Z0-9._-]+/g, "_");
-  const outputFile = join(modelDir, `${safeTaskName}.json`);
+  const outputFile = join(modelDir, `${taskId}.json`);
+  mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return outputFile;
 }
@@ -387,18 +387,40 @@ function loadLexiconFromXlsx(xlsxPath) {
 
 function loadGridTasks(gridsDir, cliOptions) {
   const dir = resolve(gridsDir);
+  const isUnderTasksRoot = dir === TASKS_ROOT || dir.startsWith(`${TASKS_ROOT}/`);
+  const taskFiles = [];
 
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".json"))
+  function walk(currentDir) {
+    for (const name of readdirSync(currentDir).sort()) {
+      const fullPath = join(currentDir, name);
+      const stats = statSync(fullPath);
+      if (stats.isDirectory()) {
+        walk(fullPath);
+      } else if (name.endsWith(".json")) {
+        taskFiles.push(fullPath);
+      }
+    }
+  }
+
+  walk(dir);
+
+  return taskFiles
     .sort()
-    .map((file) => {
-      const data = loadJson(join(dir, file));
+    .map((fullPath) => {
+      const data = loadJson(fullPath);
       const size = cliOptions.size ?? data.size;
       const minEntryLength = cliOptions.minEntryLength ?? data.minEntryLength ?? 3;
       const maxEntryLength = cliOptions.maxEntryLength ?? data.maxEntryLength ?? size;
+      const taskId =
+        data.taskId
+        ?? (isUnderTasksRoot
+          ? relative(TASKS_ROOT, fullPath).replace(/\\/g, "/").replace(/\.json$/u, "")
+          : file.replace(/\.json$/u, ""));
+      const taskName = data.taskName ?? data.title ?? data.name ?? taskId.split("/").at(-1);
 
       return {
-        name: data.name ?? file,
+        taskId,
+        taskName,
         input: {
           grid: data.grid ?? buildGridFromSlots(size, data.slots),
           slots: data.slots,
@@ -497,10 +519,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
 
       if (!sameGrid || !sameSlots) {
         const firstIssue = !sameGrid ? "fillGrid changed grid" : "fillGrid changed slots";
-        const resultFile = saveModelTaskResult(modelName, task.name, {
-          task: task.name,
-          input,
-          output,
+        const resultFile = saveModelTaskResult(modelName, task.taskId, {
+          taskId: task.taskId,
+          taskName: task.taskName,
+          puzzles: Array.isArray(output?.puzzles) ? output.puzzles : [],
           summary: {
             overallScore: 0,
             validPuzzleRate: 0,
@@ -511,7 +533,8 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
           },
         });
         results.push({
-          task: task.name,
+          task: task.taskName,
+          taskId: task.taskId,
           score: 0,
           validPuzzleRate: 0,
           elapsedMs,
@@ -548,11 +571,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         firstIssue = "returned fewer puzzles than requested";
       }
 
-      const resultFile = saveModelTaskResult(modelName, task.name, {
-        task: task.name,
-        input,
-        output,
-        score,
+      const resultFile = saveModelTaskResult(modelName, task.taskId, {
+        taskId: task.taskId,
+        taskName: task.taskName,
+        puzzles: output.puzzles ?? [],
         summary: {
           overallScore: score.overallScore,
           validPuzzleRate: score.breakdown.validPuzzleRate,
@@ -564,7 +586,8 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
 
       results.push({
-        task: task.name,
+        task: task.taskName,
+        taskId: task.taskId,
         score: score.overallScore,
         validPuzzleRate: score.breakdown.validPuzzleRate,
         preferenceFit: score.breakdown.preferenceFit,
@@ -577,9 +600,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const resultFile = saveModelTaskResult(modelName, task.name, {
-        task: task.name,
-        input,
+      const resultFile = saveModelTaskResult(modelName, task.taskId, {
+        taskId: task.taskId,
+        taskName: task.taskName,
+        puzzles: [],
         error: message,
         summary: {
           overallScore: 0,
@@ -590,7 +614,8 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         },
       });
       results.push({
-        task: task.name,
+        task: task.taskName,
+        taskId: task.taskId,
         score: 0,
         validPuzzleRate: 0,
         elapsedMs: null,
@@ -613,11 +638,15 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
 
 function printUsage() {
   console.log("usage:");
-  console.log("  node scripts/benchmark-fill-grid.js --grids-dir <dir> [--lexicon-xlsx <file>]");
+  console.log("  node scripts/benchmark-fill-grid.js --tasks-dir <dir> [--lexicon-xlsx <file>]");
   console.log("    [--size <n>] [--minEntryLength <n>] [--maxEntryLength <n>]");
   console.log("    [--maxJlptLevel <level>] [--allowedPos <a,b,c>] [--tags <a,b,c>]");
   console.log("    [--model <name>]");
   console.log("    [--preferredTags <a,b,c>] [--preferredPos <a,b,c>] [--preferredLevels <a,b,c>] [--count <n>]");
+  console.log("");
+  console.log("examples:");
+  console.log("  node scripts/benchmark-fill-grid.js --tasks-dir tasks/fill-grid/site-6x6 --count 5");
+  console.log("  node scripts/benchmark-fill-grid.js --model gpt-5.4 --tasks-dir tasks/fill-grid/manual --minEntryLength 3 --count 5");
 }
 
 function printModelSummary(result) {
@@ -706,8 +735,9 @@ function printLeaderboard(results) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const tasksDir = args["tasks-dir"];
 
-  if (args.help || !args["grids-dir"]) {
+  if (args.help || !tasksDir) {
     printUsage();
     process.exit(args.help ? 0 : 1);
   }
@@ -746,7 +776,7 @@ async function main() {
 
   const lexiconXlsx = resolve(args["lexicon-xlsx"] ?? DEFAULT_LEXICON_XLSX);
   const lexicon = loadLexiconFromXlsx(lexiconXlsx);
-  const tasks = loadGridTasks(args["grids-dir"], cliOptions);
+  const tasks = loadGridTasks(tasksDir, cliOptions);
   const models = selectModels(discoverModels(), args.model);
 
   if (models.length === 0) {
@@ -754,7 +784,7 @@ async function main() {
   }
 
   console.log(`benchmarking ${models.length} fillGrid models from ${MODELS_DIR}`);
-  console.log(`grids: ${tasks.length} from ${resolve(args["grids-dir"])}`);
+  console.log(`tasks: ${tasks.length} from ${resolve(tasksDir)}`);
   console.log(`lexicon: ${lexicon.length} entries from ${lexiconXlsx}`);
   console.log(`results: ${RUN_RESULTS_DIR}`);
   initializeProgress(models, tasks.length);

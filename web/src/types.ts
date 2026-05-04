@@ -21,6 +21,21 @@ export interface Puzzle {
   entries: PlacedEntry[];
 }
 
+export interface TaskFile {
+  taskId: string;
+  taskName: string;
+  size: number;
+  grid: string[][];
+  slots: Slot[];
+  minEntryLength?: number;
+  maxEntryLength?: number;
+  title?: string;
+  name?: string;
+  note?: string;
+  page?: number;
+  url?: string;
+}
+
 export interface Summary {
   overallScore: number;
   validPuzzleRate: number;
@@ -33,23 +48,16 @@ export interface Summary {
 }
 
 export interface ResultFile {
-  task: string;
-  input: {
-    grid: string[][];
-    slots: Slot[];
-    gridConstraints?: {
-      size: number;
-      minEntryLength?: number;
-      maxEntryLength?: number;
-    };
-  };
-  output?: {
-    size: number;
-    grid: string[][];
-    slots: Slot[];
-    puzzles: Puzzle[];
-  };
+  taskId: string;
+  taskName?: string;
+  puzzles: Puzzle[];
   summary?: Summary;
+  error?: string;
+}
+
+export interface LoadedResult {
+  task: TaskFile;
+  result: ResultFile;
 }
 
 export interface ResultRecord {
@@ -57,7 +65,9 @@ export interface ResultRecord {
   timestamp: string;
   model: string;
   fileName: string;
+  taskId: string;
   taskName: string;
-  url: string;
+  resultUrl: string;
+  taskUrl: string;
   summary?: Summary;
 }

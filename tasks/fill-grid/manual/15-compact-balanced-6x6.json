@@ -1,0 +1,131 @@
+{
+  "name": "15. compact balanced 6x6",
+  "note": "紧凑 6x6，交叉比较充分，目标是手写高分样例。",
+  "size": 6,
+  "grid": [
+    [
+      "#",
+      ".",
+      ".",
+      ".",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      "#",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      "#",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      ".",
+      ".",
+      ".",
+      "#"
+    ]
+  ],
+  "slots": [
+    {
+      "direction": "across",
+      "row": 0,
+      "col": 1,
+      "length": 3
+    },
+    {
+      "direction": "across",
+      "row": 1,
+      "col": 0,
+      "length": 3
+    },
+    {
+      "direction": "across",
+      "row": 2,
+      "col": 0,
+      "length": 6
+    },
+    {
+      "direction": "across",
+      "row": 3,
+      "col": 0,
+      "length": 6
+    },
+    {
+      "direction": "across",
+      "row": 4,
+      "col": 3,
+      "length": 3
+    },
+    {
+      "direction": "across",
+      "row": 5,
+      "col": 2,
+      "length": 3
+    },
+    {
+      "direction": "down",
+      "row": 1,
+      "col": 0,
+      "length": 4
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 1,
+      "length": 5
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 2,
+      "length": 4
+    },
+    {
+      "direction": "down",
+      "row": 2,
+      "col": 3,
+      "length": 4
+    },
+    {
+      "direction": "down",
+      "row": 1,
+      "col": 4,
+      "length": 5
+    },
+    {
+      "direction": "down",
+      "row": 1,
+      "col": 5,
+      "length": 4
+    }
+  ],
+  "taskId": "manual/15-compact-balanced-6x6",
+  "taskName": "15. compact balanced 6x6"
+}

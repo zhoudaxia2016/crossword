@@ -1,0 +1,158 @@
+{
+  "name": "09. balanced classic-ish",
+  "note": "黑格少但分布比较克制，应该是较高分的合法样例。",
+  "size": 7,
+  "grid": [
+    [
+      "#",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "#"
+    ]
+  ],
+  "slots": [
+    {
+      "direction": "across",
+      "row": 0,
+      "col": 1,
+      "length": 6
+    },
+    {
+      "direction": "across",
+      "row": 1,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 2,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 3,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 4,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 5,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 6,
+      "col": 0,
+      "length": 6
+    },
+    {
+      "direction": "down",
+      "row": 1,
+      "col": 0,
+      "length": 6
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 1,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 2,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 3,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 4,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 5,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 6,
+      "length": 6
+    }
+  ],
+  "taskId": "manual/09-balanced-classic-ish",
+  "taskName": "09. balanced classic-ish"
+}

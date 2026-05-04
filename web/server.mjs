@@ -7,6 +7,7 @@ import { createServer as createViteServer } from "vite";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const distRoot = path.join(currentDir, "dist");
 const resultsRoot = path.resolve(currentDir, "../results");
+const tasksRoot = path.resolve(currentDir, "../tasks/fill-grid");
 const port = Number(process.env.PORT || 4173);
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -29,6 +30,28 @@ function readSummary(filePath) {
   }
 }
 
+function listJsonFilesRecursive(root) {
+  const files = [];
+
+  function walk(dir) {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const fullPath = path.join(dir, name);
+      const stats = fs.statSync(fullPath);
+      if (stats.isDirectory()) {
+        walk(fullPath);
+      } else if (name.endsWith(".json")) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  if (fs.existsSync(root)) {
+    walk(root);
+  }
+
+  return files;
+}
+
 function buildManifest() {
   const records = [];
   if (!fs.existsSync(resultsRoot)) {
@@ -43,16 +66,19 @@ function buildManifest() {
       const modelDir = path.join(timestampDir, model);
       if (!fs.statSync(modelDir).isDirectory()) continue;
 
-      for (const fileName of fs.readdirSync(modelDir).sort()) {
-        if (!fileName.endsWith(".json")) continue;
-        const fullPath = path.join(modelDir, fileName);
+      for (const fullPath of listJsonFilesRecursive(modelDir)) {
+        const fileName = path.relative(modelDir, fullPath).replace(/\\/g, "/");
+        const result = JSON.parse(fs.readFileSync(fullPath, "utf8"));
+        const taskId = result.taskId ?? fileName.replace(/\.json$/u, "");
         records.push({
           id: `${timestamp}/${model}/${fileName}`,
           timestamp,
           model,
           fileName,
-          taskName: fileName.replace(/\.json$/u, ""),
-          url: `/api/results/files/${timestamp}/${model}/${fileName}`,
+          taskId,
+          taskName: result.taskName ?? taskId.split("/").at(-1),
+          resultUrl: `/api/results/files/${timestamp}/${model}/${fileName}`,
+          taskUrl: `/api/tasks/files/${taskId}.json`,
           summary: readSummary(fullPath),
         });
       }
@@ -93,6 +119,17 @@ function createRequestHandler(vite) {
       const relativePath = pathname.replace("/api/results/files/", "");
       const filePath = path.join(resultsRoot, relativePath);
       if (!filePath.startsWith(resultsRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        sendText(res, 404, "Not found");
+        return;
+      }
+      serveFile(res, filePath);
+      return;
+    }
+
+    if (pathname.startsWith("/api/tasks/files/")) {
+      const relativePath = pathname.replace("/api/tasks/files/", "");
+      const filePath = path.join(tasksRoot, relativePath);
+      if (!filePath.startsWith(tasksRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
         sendText(res, 404, "Not found");
         return;
       }
