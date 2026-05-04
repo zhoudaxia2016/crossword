@@ -3,7 +3,7 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 import { Input } from "./components/ui/input";
-import { groupResults, loadManifest, loadResult } from "./data";
+import { buildRunSummary, groupResults, loadManifest, loadResult } from "./data";
 import {
   applySlotDraft,
   buildBoardState,
@@ -30,6 +30,26 @@ function formatSummary(record: ResultRecord) {
 
 function buildEntryMap(entries: PlacedEntry[]) {
   return new Map(entries.map((entry) => [slotKey(entry.direction, entry.number), entry]));
+}
+
+function parseRoute(pathname: string) {
+  const runMatch = pathname.match(/^\/runs\/([^/]+)$/u);
+  if (runMatch) {
+    return {
+      kind: "run" as const,
+      timestamp: decodeURIComponent(runMatch[1]),
+    };
+  }
+  return {
+    kind: "review" as const,
+  };
+}
+
+function navigateTo(path: string) {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
 }
 
 interface AnswerEditorProps {
@@ -85,6 +105,88 @@ const AnswerEditor = memo(function AnswerEditor({
   );
 });
 
+interface RunSummaryViewProps {
+  records: ResultRecord[];
+  timestamp: string;
+  onOpenTask: (taskId: string) => void;
+}
+
+const RunSummaryView = memo(function RunSummaryView({
+  records,
+  timestamp,
+  onOpenTask,
+}: RunSummaryViewProps) {
+  const models = useMemo(() => buildRunSummary(records, timestamp), [records, timestamp]);
+
+  return (
+    <div className="summary-view">
+      <header className="workspace-header">
+        <div>
+          <div className="eyebrow">Run Summary</div>
+          <h2>{timestamp}</h2>
+        </div>
+        <Button variant="outline" onClick={() => navigateTo("/")} type="button">
+          返回题目
+        </Button>
+      </header>
+
+      <section className="summary-grid">
+        {models.map((model) => (
+          <Card key={model.model} className="summary-card">
+            <CardHeader>
+              <CardTitle>{model.model}</CardTitle>
+            </CardHeader>
+            <CardContent className="summary-card__body">
+              <div className="summary-metrics">
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Final</span>
+                  <span className="summary-metric__value">{model.avgFinalScore.toFixed(3)}</span>
+                </div>
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Overall</span>
+                  <span className="summary-metric__value">{model.avgOverallScore.toFixed(3)}</span>
+                </div>
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Valid</span>
+                  <span className="summary-metric__value">{model.avgValidPuzzleRate.toFixed(3)}</span>
+                </div>
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Fit</span>
+                  <span className="summary-metric__value">{model.avgPreferenceFit.toFixed(3)}</span>
+                </div>
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Variety</span>
+                  <span className="summary-metric__value">{model.avgCrossPuzzleVariety.toFixed(3)}</span>
+                </div>
+                <div className="summary-metric">
+                  <span className="summary-metric__label">Time</span>
+                  <span className="summary-metric__value">{Math.round(model.avgElapsedMs)}ms</span>
+                </div>
+              </div>
+
+              <div className="summary-task-list">
+                {model.tasks.map((task) => (
+                  <button
+                    key={task.id}
+                    className="summary-task"
+                    onClick={() => onOpenTask(task.id)}
+                    type="button"
+                  >
+                    <span className="summary-task__name">{task.taskName}</span>
+                    <span className="summary-task__meta">
+                      F {task.summary?.finalScore?.toFixed(3) ?? "0.000"} · O {task.summary?.overallScore?.toFixed(3) ?? "0.000"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+    </div>
+  );
+});
+
 export default function App() {
   const [records, setRecords] = useState<ResultRecord[]>([]);
   const [selectedData, setSelectedData] = useState<LoadedResult | null>(null);
@@ -96,6 +198,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [openTimes, setOpenTimes] = useState<Record<string, boolean>>({});
   const [openModels, setOpenModels] = useState<Record<string, boolean>>({});
+  const [route, setRoute] = useState(() => parseRoute(window.location.pathname));
+
+  useEffect(() => {
+    const onPopState = () => setRoute(parseRoute(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     loadManifest()
@@ -242,6 +351,12 @@ export default function App() {
     ? isSolved(selectedEntry, getSlotResolvedText(selectedSlot, puzzleCells))
     : false;
 
+  function openTask(taskId: string) {
+    setSelectedId(taskId);
+    setSelectedPuzzleIndex(0);
+    navigateTo("/");
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -282,9 +397,8 @@ export default function App() {
                               <button
                                 key={task.id}
                                 className={cn("task-card", task.id === selectedId && "is-active")}
-                                onClick={() => {
-                                  setSelectedId(task.id);
-                                  setSelectedPuzzleIndex(0);
+                          onClick={() => {
+                                  openTask(task.id);
                                 }}
                                 type="button"
                               >
@@ -305,7 +419,13 @@ export default function App() {
       </aside>
 
       <main className="main-panel">
-        {selectedRecord && selectedData && selectedPuzzle && boardState ? (
+        {route.kind === "run" ? (
+          <RunSummaryView
+            records={records}
+            timestamp={route.timestamp}
+            onOpenTask={openTask}
+          />
+        ) : selectedRecord && selectedData && selectedPuzzle && boardState ? (
           <>
             <header className="workspace-header">
               <div>
@@ -314,15 +434,24 @@ export default function App() {
                 </div>
                 <h2>{selectedRecord.taskName}</h2>
               </div>
-              <Card className="score-card">
-                <CardContent className="score-card__content">
-                  <div className="score-label">完成度</div>
-                  <div className="score-value">{boardState.percent}%</div>
-                  <div className="score-detail">
-                    {boardState.correctCellCount}/{boardState.playableCellCount}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="workspace-header__actions">
+                <Button
+                  variant="outline"
+                  onClick={() => navigateTo(`/runs/${encodeURIComponent(selectedRecord.timestamp)}`)}
+                  type="button"
+                >
+                  查看本次汇总
+                </Button>
+                <Card className="score-card">
+                  <CardContent className="score-card__content">
+                    <div className="score-label">完成度</div>
+                    <div className="score-value">{boardState.percent}%</div>
+                    <div className="score-detail">
+                      {boardState.correctCellCount}/{boardState.playableCellCount}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </header>
 
             <section className="puzzle-tabs">
