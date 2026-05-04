@@ -9,6 +9,8 @@ const MODELS_DIR = resolve("models");
 const RESULTS_DIR = resolve("results");
 const DEFAULT_LEXICON_XLSX = resolve("词汇表.xlsx");
 const DEFAULT_COUNT = 5;
+const RUN_ID = formatRunId(new Date());
+const RUN_RESULTS_DIR = join(RESULTS_DIR, RUN_ID);
 
 function average(values) {
   if (values.length === 0) {
@@ -19,6 +21,19 @@ function average(values) {
 
 function round(value) {
   return Number(value.toFixed(4));
+}
+
+function formatRunId(date) {
+  const parts = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+    "-",
+    String(date.getHours()).padStart(2, "0"),
+    String(date.getMinutes()).padStart(2, "0"),
+    String(date.getSeconds()).padStart(2, "0"),
+  ];
+  return parts.join("");
 }
 
 function pad(text, width) {
@@ -36,6 +51,25 @@ function formatTable(headers, rows) {
   const divider = `|-${widths.map((width) => "-".repeat(width)).join("-|-")}-|`;
 
   return [renderRow(headers), divider, ...rows.map(renderRow)].join("\n");
+}
+
+function renderProgressBar(completed, total, width = 24) {
+  const safeTotal = Math.max(total, 1);
+  const ratio = Math.max(0, Math.min(1, completed / safeTotal));
+  const filled = Math.round(ratio * width);
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+}
+
+function printModelProgress(modelName, completed, total) {
+  const line = `${modelName}: ${renderProgressBar(completed, total)} ${completed}/${total}`;
+  if (process.stdout.isTTY) {
+    process.stdout.write(`\r${line}`);
+    if (completed >= total) {
+      process.stdout.write("\n");
+    }
+    return;
+  }
+  console.log(line);
 }
 
 function buildGridFromSlots(size, slots) {
@@ -82,11 +116,75 @@ function loadJson(file) {
 }
 
 function saveModelTaskResult(modelName, taskName, payload) {
-  const modelDir = join(RESULTS_DIR, modelName);
+  const modelDir = join(RUN_RESULTS_DIR, modelName);
   mkdirSync(modelDir, { recursive: true });
   const safeTaskName = String(taskName).replace(/[^a-zA-Z0-9._-]+/g, "_");
   const outputFile = join(modelDir, `${safeTaskName}.json`);
   writeFileSync(outputFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return outputFile;
+}
+
+function updateSavedResult(file, updater) {
+  const current = loadJson(file);
+  const next = updater(current);
+  writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+}
+
+function computeTimeScores(allResults) {
+  const fastestByTask = new Map();
+
+  for (const result of allResults) {
+    for (const task of result.results) {
+      if (task.error || typeof task.elapsedMs !== "number" || task.elapsedMs <= 0) {
+        continue;
+      }
+
+      const current = fastestByTask.get(task.task);
+      if (current === undefined || task.elapsedMs < current) {
+        fastestByTask.set(task.task, task.elapsedMs);
+      }
+    }
+  }
+
+  for (const result of allResults) {
+    for (const task of result.results) {
+      const fastestMs = fastestByTask.get(task.task);
+      const relativeTimeScore =
+        !task.error && typeof task.elapsedMs === "number" && task.elapsedMs > 0 && typeof fastestMs === "number"
+          ? Math.min(1, fastestMs / task.elapsedMs)
+          : 0;
+      const finalScore = task.score > 0 ? task.score * (0.8 + 0.2 * relativeTimeScore) : 0;
+
+      task.fastestMs = fastestMs ?? null;
+      task.timeScore = round(relativeTimeScore);
+      task.finalScore = round(finalScore);
+
+      if (task.resultFile) {
+        updateSavedResult(task.resultFile, (saved) => ({
+          ...saved,
+          summary: {
+            ...(saved.summary ?? {}),
+            elapsedMs: task.elapsedMs ?? null,
+            fastestMs: task.fastestMs,
+            timeScore: task.timeScore,
+            finalScore: task.finalScore,
+          },
+        }));
+      }
+    }
+
+    result.averageOverallScore = round(average(result.results.map((task) => task.score ?? 0)));
+    result.averageValidPuzzleRate = round(average(result.results.map((task) => task.validPuzzleRate ?? 0)));
+    result.averageFinalScore = round(average(result.results.map((task) => task.finalScore ?? 0)));
+    result.averageTimeScore = round(average(result.results.map((task) => task.timeScore ?? 0)));
+    result.averageElapsedMs = round(
+      average(
+        result.results
+          .map((task) => task.elapsedMs)
+          .filter((elapsedMs) => typeof elapsedMs === "number"),
+      ),
+    );
+  }
 }
 
 function parseListArg(value) {
@@ -322,15 +420,18 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
   if (typeof model.fillGrid !== "function") {
     return {
       available: false,
-      averageScore: 0,
+      averageOverallScore: 0,
       averageValidPuzzleRate: 0,
+      averageFinalScore: 0,
       results: [],
     };
   }
 
   const results = [];
+  printModelProgress(modelName, 0, tasks.length);
 
-  for (const task of tasks) {
+  for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 1) {
+    const task = tasks[taskIndex];
     const input = {
       ...task.input,
       lexicon,
@@ -348,13 +449,15 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
     };
 
     try {
+      const startedAt = Date.now();
       const output = await model.fillGrid(input);
+      const elapsedMs = Date.now() - startedAt;
       const sameGrid = deepEqual(output.grid, input.grid);
       const sameSlots = deepEqual(output.slots, input.slots);
 
       if (!sameGrid || !sameSlots) {
         const firstIssue = !sameGrid ? "fillGrid changed grid" : "fillGrid changed slots";
-        saveModelTaskResult(modelName, task.name, {
+        const resultFile = saveModelTaskResult(modelName, task.name, {
           task: task.name,
           input,
           output,
@@ -363,6 +466,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
             validPuzzleRate: 0,
             preferenceFit: 0,
             crossPuzzleVariety: 0,
+            elapsedMs,
             firstIssue,
           },
         });
@@ -370,8 +474,11 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
           task: task.name,
           score: 0,
           validPuzzleRate: 0,
+          elapsedMs,
+          resultFile,
           error: firstIssue,
         });
+        printModelProgress(modelName, taskIndex + 1, tasks.length);
         continue;
       }
 
@@ -401,7 +508,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         firstIssue = "returned fewer puzzles than requested";
       }
 
-      saveModelTaskResult(modelName, task.name, {
+      const resultFile = saveModelTaskResult(modelName, task.name, {
         task: task.name,
         input,
         output,
@@ -411,6 +518,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
           validPuzzleRate: score.breakdown.validPuzzleRate,
           preferenceFit: score.breakdown.preferenceFit,
           crossPuzzleVariety: score.breakdown.crossPuzzleVariety,
+          elapsedMs,
           firstIssue,
         },
       });
@@ -421,13 +529,15 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         validPuzzleRate: score.breakdown.validPuzzleRate,
         preferenceFit: score.breakdown.preferenceFit,
         crossPuzzleVariety: score.breakdown.crossPuzzleVariety,
+        elapsedMs,
+        resultFile,
         stats: score.stats,
         invalidPuzzles,
         firstIssue,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      saveModelTaskResult(modelName, task.name, {
+      const resultFile = saveModelTaskResult(modelName, task.name, {
         task: task.name,
         input,
         error: message,
@@ -443,15 +553,20 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         task: task.name,
         score: 0,
         validPuzzleRate: 0,
+        elapsedMs: null,
+        resultFile,
         error: message,
       });
     }
+
+    printModelProgress(modelName, taskIndex + 1, tasks.length);
   }
 
   return {
     available: true,
-    averageScore: round(average(results.map((result) => result.score))),
+    averageOverallScore: round(average(results.map((result) => result.score))),
     averageValidPuzzleRate: round(average(results.map((result) => result.validPuzzleRate ?? 0))),
+    averageFinalScore: 0,
     results,
   };
 }
@@ -469,22 +584,25 @@ function printModelSummary(result) {
   console.log(`\n## ${result.name}`);
   console.log(
     formatTable(
-      ["overallScore", "validPuzzleRate"],
-      [[result.averageScore, result.averageValidPuzzleRate]],
+      ["finalScore", "overallScore", "validPuzzleRate"],
+      [[result.averageFinalScore, result.averageOverallScore, result.averageValidPuzzleRate]],
     ),
   );
 
   const taskRows = result.results.map((task) => {
     if (task.error) {
-      return [task.task, 0, 0, 0, 0, "-", "-", task.error];
+      return [task.task, 0, 0, 0, 0, "-", "-", "-", "-", task.error];
     }
 
     return [
       task.task,
+      task.finalScore,
       task.score,
       task.validPuzzleRate,
       task.preferenceFit,
       task.crossPuzzleVariety,
+      task.elapsedMs,
+      task.timeScore,
       `${task.stats.validCount}/${task.stats.requestedCount}`,
       task.stats.returnedCount,
       task.firstIssue ?? "",
@@ -495,10 +613,13 @@ function printModelSummary(result) {
     formatTable(
       [
         "task",
+        "finalScore",
         "overallScore",
         "validPuzzleRate",
         "preferenceFit",
         "crossPuzzleVariety",
+        "elapsedMs",
+        "timeScore",
         "valid/expected",
         "returned",
         "firstIssue",
@@ -525,14 +646,22 @@ function printModelSummary(result) {
 
 function printLeaderboard(results) {
   console.log("\n# Leaderboard");
-  const sorted = [...results].sort((a, b) => b.averageScore - a.averageScore);
+  const sorted = [...results].sort((a, b) => b.averageFinalScore - a.averageFinalScore);
   const rows = sorted.map((result, index) => [
     index + 1,
     result.name,
-    result.averageScore,
+    result.averageFinalScore,
+    result.averageOverallScore,
     result.averageValidPuzzleRate,
+    result.averageTimeScore,
+    result.averageElapsedMs,
   ]);
-  console.log(formatTable(["rank", "model", "overallScore", "validPuzzleRate"], rows));
+  console.log(
+    formatTable(
+      ["rank", "model", "finalScore", "overallScore", "validPuzzleRate", "timeScore", "elapsedMs"],
+      rows,
+    ),
+  );
 }
 
 async function main() {
@@ -587,6 +716,7 @@ async function main() {
   console.log(`benchmarking ${models.length} fillGrid models from ${MODELS_DIR}`);
   console.log(`grids: ${tasks.length} from ${resolve(args["grids-dir"])}`);
   console.log(`lexicon: ${lexicon.length} entries from ${lexiconXlsx}`);
+  console.log(`results: ${RUN_RESULTS_DIR}`);
 
   const allResults = [];
 
@@ -598,6 +728,11 @@ async function main() {
       ...result,
     };
     allResults.push(summary);
+  }
+
+  computeTimeScores(allResults);
+
+  for (const summary of allResults) {
     printModelSummary(summary);
   }
 

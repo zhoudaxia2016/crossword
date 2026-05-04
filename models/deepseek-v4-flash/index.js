@@ -364,14 +364,14 @@ export function generateGrid(input) {
 }
 
 export function fillGrid(input) {
-  const { grid, slots, lexicon, gridConstraints, wordConstraints = {}, wordPreferences = {}, count } = input;
+  const { grid, slots, lexicon, gridConstraints, wordConstraints = {}, count } = input;
   const size = gridConstraints.size;
 
   const adj = buildAdj(slots);
   const byLen = indexLexicon(lexicon);
   const baseCandidates = buildCandidates(byLen, slots, wordConstraints);
 
-  for (const [k, list] of baseCandidates) {
+  for (const [, list] of baseCandidates) {
     if (list.length === 0) return { size, grid, slots, puzzles: [] };
   }
 
@@ -379,7 +379,6 @@ export function fillGrid(input) {
   const numMap = new Map(numbered.map(s => [slotKey(s), s.number]));
 
   const puzzles = [];
-  const wordBlacklist = new Set();
 
   // try up to `count * 5` times to produce `count` distinct puzzles
   for (let attempt = 0; attempt < count * 5 && puzzles.length < count; attempt++) {

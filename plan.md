@@ -55,6 +55,10 @@ node scripts/benchmark-fill-grid.js --model gpt-5.4 --grids-dir grids/manual --m
 3. 先看 `validPuzzleRate` 和 `firstIssue`
 4. 再看 `preferenceFit` 与 `crossPuzzleVariety`
 
+benchmark 每次运行都会把结果保存到新的时间目录，避免覆盖旧结果：
+
+- `results/<timestamp>/<model>/`
+
 ## 输入
 
 ### 词库结构
@@ -245,3 +249,47 @@ benchmark 输出中的字段名与这里保持一致：
 - `validPuzzleRate`
 - `preferenceFit`
 - `crossPuzzleVariety`
+
+### 5. 时间评分
+
+benchmark runner 会对每个 task 额外统计运行时间：
+
+- `elapsedMs`: 该模型完成这个 task 的实际耗时
+
+时间不单独替代内容分，而是作为最终分的修正项。
+
+时间分不使用固定的绝对阈值，而是在同一个 task 内做相对比较：
+
+- `timeScore = fastestElapsedMs / modelElapsedMs`
+- 上限为 `1`
+
+也就是说：
+
+- 同一个 task 上最快的模型，`timeScore = 1`
+- 更慢的模型，`timeScore` 会按比例下降
+
+这样可以避免随着 `size` 变大，所有模型的时间分一起塌缩，导致时间项失真。
+
+### 6. `finalScore`
+
+`finalScore` 是 benchmark 排行使用的最终分。
+
+当前计算方式是：
+
+- `finalScore = overallScore * (0.8 + 0.2 * timeScore)`
+
+含义：
+
+- 内容正确性和结果质量仍然是主导
+- 时间最多影响约 20%
+- 如果 `overallScore = 0`，则 `finalScore = 0`
+
+benchmark 输出中的主要评分字段为：
+
+- `finalScore`
+- `overallScore`
+- `validPuzzleRate`
+- `preferenceFit`
+- `crossPuzzleVariety`
+- `elapsedMs`
+- `timeScore`
