@@ -1,0 +1,195 @@
+import { memo, useEffect, useState } from "react";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import {
+  type CellState,
+  type SlotWithNumber,
+  getPrimarySlotAtCell,
+  isCellInSlot,
+  slotKey,
+} from "../game";
+import { cn } from "../lib/utils";
+import type { LoadedResult, PlacedEntry, ResultRecord } from "../types";
+
+/* ──────────────── Answer Editor ──────────────── */
+
+interface AnswerEditorProps {
+  selectedId: string;
+  puzzleIndex: number;
+  selectedEntry?: PlacedEntry;
+  selectedSlot?: SlotWithNumber;
+  currentText: string;
+  isSolved: boolean;
+  onConfirm: (draft: string) => void;
+}
+
+const AnswerEditor = memo(function AnswerEditor({
+  selectedId,
+  puzzleIndex,
+  selectedEntry,
+  selectedSlot,
+  currentText,
+  isSolved,
+  onConfirm,
+}: AnswerEditorProps) {
+  const [draftAnswer, setDraftAnswer] = useState("");
+
+  useEffect(() => {
+    setDraftAnswer(currentText);
+  }, [selectedId, puzzleIndex, selectedEntry?.number, selectedEntry?.direction, currentText]);
+
+  return (
+    <Card className="answer-panel">
+      <CardHeader>
+        <CardTitle>
+          {selectedEntry
+            ? `${selectedEntry.number} ${selectedEntry.direction === "across" ? "Across" : "Down"}`
+            : "Answer"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="answer-panel__body">
+        {isSolved && selectedEntry ? <div className="answer-word">{selectedEntry.word}</div> : null}
+        <div className="answer-clue">{selectedEntry?.clue ?? ""}</div>
+        <Input
+          value={draftAnswer}
+          onChange={(event) => setDraftAnswer(event.target.value)}
+          disabled={!selectedEntry}
+          placeholder=""
+        />
+        <Button onClick={() => onConfirm(draftAnswer)} type="button" disabled={!selectedSlot}>
+          确定
+        </Button>
+      </CardContent>
+    </Card>
+  );
+});
+
+/* ──────────────── Answer Page ──────────────── */
+
+interface AnswerPageProps {
+  selectedRecord?: ResultRecord;
+  selectedData?: LoadedResult | null;
+  boardState: {
+    cells: CellState[][];
+    correctCellCount: number;
+    playableCellCount: number;
+    percent: number;
+  } | null;
+  numberedSlots: SlotWithNumber[];
+  selectedSlot?: SlotWithNumber;
+  hoveredSlot?: SlotWithNumber;
+  selectedEntry?: PlacedEntry;
+  currentSlotText: string;
+  selectedSolved: boolean;
+  puzzleIndex: number;
+  error: string;
+  onSelectSlot: (slot: SlotWithNumber | undefined) => void;
+  onSetHoveredSlotKey: (key: string) => void;
+  onConfirmDraft: (draft: string) => void;
+}
+
+export default function AnswerPage({
+  selectedRecord,
+  selectedData,
+  boardState,
+  numberedSlots,
+  selectedSlot,
+  hoveredSlot,
+  selectedEntry,
+  currentSlotText,
+  selectedSolved,
+  puzzleIndex,
+  error,
+  onSelectSlot,
+  onSetHoveredSlotKey,
+  onConfirmDraft,
+}: AnswerPageProps) {
+  if (!selectedRecord || !selectedData || !boardState) {
+    return <div className="empty-state">{error || "No result selected."}</div>;
+  }
+
+  return (
+    <>
+      <header className="workspace-header">
+        <div>
+          <div className="eyebrow">{selectedRecord.model}</div>
+          <h2>{selectedRecord.taskName}</h2>
+        </div>
+        <div className="workspace-header__actions">
+          <Card className="score-card">
+            <CardContent className="score-card__content">
+              <div className="score-label">完成度</div>
+              <div className="score-value">{boardState.percent}%</div>
+              <div className="score-detail">
+                {boardState.correctCellCount}/{boardState.playableCellCount}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </header>
+
+      <section className="play-area">
+        <Card className="board-panel">
+          <CardContent className="board-panel__content">
+            <div
+              className="crossword-board"
+              style={{
+                gridTemplateColumns: `repeat(${selectedData.task.size ?? selectedData.task.grid.length}, minmax(0, 1fr))`,
+              }}
+            >
+              {boardState.cells.flat().map((cell, index) => {
+                const size = selectedData.task.size ?? selectedData.task.grid.length;
+                const row = Math.floor(index / size);
+                const col = index % size;
+                const startLabels = numberedSlots
+                  .filter((slot) => slot.row === row && slot.col === col)
+                  .map((slot) => slot.number);
+                const label = startLabels[0];
+                const prioritySlot = getPrimarySlotAtCell(numberedSlots, row, col);
+                return (
+                  <button
+                    key={`${row}-${col}`}
+                    type="button"
+                    className={cn(
+                      "board-cell",
+                      cell.isBlack && "is-black",
+                      cell.isCorrect && "is-correct",
+                      selectedSlot && isCellInSlot(selectedSlot, row, col) && "is-selected",
+                      hoveredSlot && isCellInSlot(hoveredSlot, row, col) && "is-hovered",
+                    )}
+                    onMouseEnter={() =>
+                      onSetHoveredSlotKey(
+                        prioritySlot ? slotKey(prioritySlot.direction, prioritySlot.number) : "",
+                      )
+                    }
+                    onMouseLeave={() => onSetHoveredSlotKey("")}
+                    onClick={() => onSelectSlot(prioritySlot)}
+                    disabled={cell.isBlack}
+                  >
+                    {!cell.isBlack && label ? (
+                      <span className="cell-number">{label}</span>
+                    ) : null}
+                    {!cell.isBlack ? <span className="cell-char">{cell.actual ?? ""}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="clue-panel">
+          <AnswerEditor
+            selectedId={selectedRecord.id}
+            puzzleIndex={puzzleIndex}
+            selectedEntry={selectedEntry}
+            selectedSlot={selectedSlot}
+            currentText={currentSlotText}
+            isSolved={selectedSolved}
+            onConfirm={onConfirmDraft}
+          />
+        </div>
+      </section>
+    </>
+  );
+}
