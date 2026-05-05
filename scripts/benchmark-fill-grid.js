@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, fork } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
-import scoreFilledPuzzles from "./fill-score.js";
 import { normalizeKanaText } from "./kana.js";
 
 const MODELS_DIR = resolve("models");
@@ -11,8 +11,10 @@ const RESULTS_DIR = resolve("results");
 const TEMPLATES_ROOT = resolve("templates/fill-grid");
 const DEFAULT_LEXICON_XLSX = resolve("词汇表.xlsx");
 const DEFAULT_COUNT = 5;
+const DEFAULT_CONCURRENCY = Math.max(1, Math.min(4, availableParallelism?.() ?? 2));
 const RUN_ID = formatRunId(new Date());
 const RUN_RESULTS_DIR = join(RESULTS_DIR, RUN_ID);
+const WORKER_FILE = fileURLToPath(new URL("./benchmark-fill-grid-worker.js", import.meta.url));
 const progressState = new Map();
 let progressOrder = [];
 let renderedProgressLines = 0;
@@ -156,18 +158,12 @@ function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function saveModelTaskResult(modelName, templateKey, payload) {
+function saveModelTemplateResult(modelName, templateKey, payload) {
   const modelDir = join(RUN_RESULTS_DIR, modelName);
   const outputFile = join(modelDir, `${templateKey}.json`);
   mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return outputFile;
-}
-
-function updateSavedResult(file, updater) {
-  const current = loadJson(file);
-  const next = updater(current);
-  writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, "utf8");
 }
 
 function computeTimeScores(allResults) {
@@ -199,18 +195,6 @@ function computeTimeScores(allResults) {
       task.timeScore = round(relativeTimeScore);
       task.finalScore = round(finalScore);
 
-      if (task.resultFile) {
-        updateSavedResult(task.resultFile, (saved) => ({
-          ...saved,
-          summary: {
-            ...(saved.summary ?? {}),
-            elapsedMs: task.elapsedMs ?? null,
-            fastestMs: task.fastestMs,
-            timeScore: task.timeScore,
-            finalScore: task.finalScore,
-          },
-        }));
-      }
     }
 
     result.averageOverallScore = round(average(result.results.map((task) => task.score ?? 0)));
@@ -476,170 +460,106 @@ function selectModels(models, modelName) {
   return filtered;
 }
 
-async function loadModel(entryFile) {
-  const mod = await import(pathToFileURL(entryFile).href);
-  const exported = mod.default ?? mod;
-  return {
-    fillGrid: exported.fillGrid ?? mod.fillGrid,
-  };
-}
-
-async function benchmarkModel(model, modelName, templates, lexicon, cliOptions) {
-  if (typeof model.fillGrid !== "function") {
-    return {
-      available: false,
-      averageOverallScore: 0,
-      averageValidPuzzleRate: 0,
-      averageFinalScore: 0,
-      results: [],
-    };
-  }
-
-  const results = [];
-  printModelProgress(modelName, 0, templates.length);
-
-  for (let templateIndex = 0; templateIndex < templates.length; templateIndex += 1) {
-    const template = templates[templateIndex];
-    const input = {
-      ...template.input,
-      lexicon,
-      wordPreferences: {
-        preferredTags: cliOptions.tags,
-        preferredPos: cliOptions.pos,
-        preferredLevels: cliOptions.levels,
-      },
-      count: cliOptions.count,
-    };
-
-    try {
-      const startedAt = Date.now();
-      const output = await model.fillGrid(input);
-      const elapsedMs = Date.now() - startedAt;
-      const sameGrid = deepEqual(output.grid, input.grid);
-      const sameSlots = deepEqual(output.slots, input.slots);
-
-      if (!sameGrid || !sameSlots) {
-        const firstIssue = !sameGrid ? "fillGrid changed grid" : "fillGrid changed slots";
-        const resultFile = saveModelTaskResult(modelName, template.templateKey, {
-          templateId: template.templateId,
-          templateKey: template.templateKey,
-          templateName: template.templateName,
-          puzzles: Array.isArray(output?.puzzles) ? output.puzzles : [],
-          summary: {
-            overallScore: 0,
-            validPuzzleRate: 0,
-            preferenceFit: 0,
-            crossPuzzleVariety: 0,
-            elapsedMs,
-            firstIssue,
-          },
-        });
-        results.push({
-          template: template.templateName,
-          templateId: template.templateId,
-          templateKey: template.templateKey,
-          score: 0,
-          validPuzzleRate: 0,
-          elapsedMs,
-          resultFile,
-          error: firstIssue,
-        });
-        printModelProgress(modelName, templateIndex + 1, templates.length);
-        continue;
-      }
-
-      const score = scoreFilledPuzzles({
-        size: output.size,
-        slots: output.slots,
+function runModelWorker(modelInfo, templates, lexicon, cliOptions) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const payloadFile = join(RUN_RESULTS_DIR, `.worker-${modelInfo.name}.json`);
+    mkdirSync(dirname(payloadFile), { recursive: true });
+    writeFileSync(
+      payloadFile,
+      `${JSON.stringify({
+        modelName: modelInfo.name,
+        entryFile: modelInfo.entry,
+        templates,
         lexicon,
-        puzzles: output.puzzles,
-        wordPreferences: input.wordPreferences,
-        expectedCount: input.count,
-      });
+        cliOptions,
+      })}\n`,
+      "utf8",
+    );
 
-      const invalidPuzzles = score.puzzles
-        .filter((puzzle) => !puzzle.valid)
-        .map((puzzle) => ({
-          index: puzzle.index,
-          firstError: puzzle.gateErrors[0] ?? "invalid puzzle",
-        }));
+    const child = fork(WORKER_FILE, [payloadFile], {
+      cwd: process.cwd(),
+      stdio: ["inherit", "inherit", "inherit", "ipc"],
+    });
 
-      let firstIssue = invalidPuzzles[0]?.firstError ?? "";
-      if (!Array.isArray(output.puzzles)) {
-        firstIssue = "output.puzzles is not an array";
-      } else if (output.puzzles.length === 0 && input.count > 0) {
-        firstIssue = "returned no puzzles";
-      } else if (score.stats.returnedCount < score.stats.requestedCount && !firstIssue) {
-        firstIssue = "returned fewer puzzles than requested";
-      }
-
-      const resultFile = saveModelTaskResult(modelName, template.templateKey, {
-        templateId: template.templateId,
-        templateKey: template.templateKey,
-        templateName: template.templateName,
-        puzzles: output.puzzles ?? [],
-        summary: {
-          overallScore: score.overallScore,
-          validPuzzleRate: score.breakdown.validPuzzleRate,
-          preferenceFit: score.breakdown.preferenceFit,
-          crossPuzzleVariety: score.breakdown.crossPuzzleVariety,
-          elapsedMs,
-          firstIssue,
-        },
-      });
-
-      results.push({
-        template: template.templateName,
-        templateId: template.templateId,
-        templateKey: template.templateKey,
-        score: score.overallScore,
-        validPuzzleRate: score.breakdown.validPuzzleRate,
-        preferenceFit: score.breakdown.preferenceFit,
-        crossPuzzleVariety: score.breakdown.crossPuzzleVariety,
-        elapsedMs,
-        resultFile,
-        stats: score.stats,
-        invalidPuzzles,
-        firstIssue,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const resultFile = saveModelTaskResult(modelName, template.templateKey, {
-        templateId: template.templateId,
-        templateKey: template.templateKey,
-        templateName: template.templateName,
-        puzzles: [],
-        error: message,
-        summary: {
-          overallScore: 0,
-          validPuzzleRate: 0,
-          preferenceFit: 0,
-          crossPuzzleVariety: 0,
-          firstIssue: message,
-        },
-      });
-      results.push({
-        template: template.templateName,
-        templateId: template.templateId,
-        templateKey: template.templateKey,
-        score: 0,
-        validPuzzleRate: 0,
-        elapsedMs: null,
-        resultFile,
-        error: message,
-      });
+    let settled = false;
+    function cleanup() {
+      rmSync(payloadFile, { force: true });
     }
 
-    printModelProgress(modelName, templateIndex + 1, templates.length);
+    child.on("message", (message) => {
+      if (!message || typeof message !== "object") {
+        return;
+      }
+      if (message.type === "progress") {
+        printModelProgress(message.modelName, message.completed, message.total);
+        return;
+      }
+      if (message.type === "done") {
+        settled = true;
+        cleanup();
+        resolvePromise(message.result);
+        return;
+      }
+      if (message.type === "fatal") {
+        settled = true;
+        cleanup();
+        rejectPromise(new Error(message.error || `worker failed: ${modelInfo.name}`));
+      }
+    });
+
+    child.on("exit", (code) => {
+      if (!settled) {
+        cleanup();
+        rejectPromise(new Error(`worker exited before completion: ${modelInfo.name} (${code ?? "unknown"})`));
+      }
+    });
+    child.on("error", (error) => {
+      cleanup();
+      rejectPromise(error);
+    });
+  });
+}
+
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runOne() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
   }
 
-  return {
-    available: true,
-    averageOverallScore: round(average(results.map((result) => result.score))),
-    averageValidPuzzleRate: round(average(results.map((result) => result.validPuzzleRate ?? 0))),
-    averageFinalScore: 0,
-    results,
-  };
+  const workers = Array.from({ length: Math.max(1, Math.min(concurrency, items.length || 1)) }, () => runOne());
+  await Promise.all(workers);
+  return results;
+}
+
+function persistResults(allResults) {
+  for (const modelResult of allResults) {
+    for (const template of modelResult.results) {
+      saveModelTemplateResult(modelResult.name, template.templateKey, {
+        templateId: template.templateId,
+        templateKey: template.templateKey,
+        templateName: template.templateName,
+        puzzles: template.puzzles ?? [],
+        ...(template.error ? { error: template.error } : {}),
+        summary: {
+          overallScore: template.score ?? 0,
+          validPuzzleRate: template.validPuzzleRate ?? 0,
+          preferenceFit: template.preferenceFit ?? 0,
+          crossPuzzleVariety: template.crossPuzzleVariety ?? 0,
+          elapsedMs: template.elapsedMs ?? null,
+          fastestMs: template.fastestMs ?? null,
+          timeScore: template.timeScore ?? 0,
+          finalScore: template.finalScore ?? 0,
+          firstIssue: template.firstIssue ?? "",
+        },
+      });
+    }
+  }
 }
 
 function printUsage() {
@@ -649,10 +569,11 @@ function printUsage() {
   console.log("    [--levels <a,b,c>] [--pos <a,b,c>] [--tags <a,b,c>]");
   console.log("    [--model <name>]");
   console.log("    [--count <n>]");
+  console.log("    [--concurrency <n>]");
   console.log("");
   console.log("examples:");
   console.log("  node scripts/benchmark-fill-grid.js --templates-dir templates/fill-grid/site-6x6 --count 5");
-  console.log("  node scripts/benchmark-fill-grid.js --model gpt-5.4 --templates-dir templates/fill-grid/manual --minEntryLength 3 --count 5");
+  console.log("  node scripts/benchmark-fill-grid.js --model gpt-5.4 --templates-dir templates/fill-grid/manual --minEntryLength 3 --count 5 --concurrency 1");
 }
 
 function printModelSummary(result) {
@@ -756,6 +677,7 @@ async function main() {
     pos: parseListArg(args.pos),
     tags: parseListArg(args.tags),
     count: args.count ? Number(args.count) : DEFAULT_COUNT,
+    concurrency: args.concurrency ? Number(args.concurrency) : DEFAULT_CONCURRENCY,
   };
 
   if (cliOptions.size !== undefined && (!Number.isInteger(cliOptions.size) || cliOptions.size <= 0)) {
@@ -776,6 +698,9 @@ async function main() {
   if (!Number.isInteger(cliOptions.count) || cliOptions.count <= 0) {
     throw new Error("count must be a positive integer");
   }
+  if (!Number.isInteger(cliOptions.concurrency) || cliOptions.concurrency <= 0) {
+    throw new Error("concurrency must be a positive integer");
+  }
 
   const lexiconXlsx = resolve(args["lexicon-xlsx"] ?? DEFAULT_LEXICON_XLSX);
   const lexicon = loadLexiconFromXlsx(lexiconXlsx);
@@ -789,21 +714,18 @@ async function main() {
   console.log(`benchmarking ${models.length} fillGrid models from ${MODELS_DIR}`);
   console.log(`templates: ${templates.length} from ${resolve(templatesDir)}`);
   console.log(`lexicon: ${lexicon.length} entries from ${lexiconXlsx}`);
+  console.log(`concurrency: ${cliOptions.concurrency}`);
   console.log(`results: ${RUN_RESULTS_DIR}`);
   initializeProgress(models, templates.length);
 
-  const allResults = await Promise.all(
-    models.map(async (modelInfo) => {
-      const model = await loadModel(modelInfo.entry);
-      const result = await benchmarkModel(model, modelInfo.name, templates, lexicon, cliOptions);
-      return {
-        name: modelInfo.name,
-        ...result,
-      };
-    }),
+  const allResults = await runWithConcurrency(
+    models,
+    cliOptions.concurrency,
+    async (modelInfo) => runModelWorker(modelInfo, templates, lexicon, cliOptions),
   );
 
   computeTimeScores(allResults);
+  persistResults(allResults);
   finishProgress();
 
   for (const summary of allResults) {
