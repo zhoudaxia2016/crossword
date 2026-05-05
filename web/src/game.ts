@@ -141,12 +141,12 @@ export function buildBoardState(
   );
 
   const playableCellCount = cells.flat().filter((cell) => !cell.isBlack).length;
-  const correctCellCount = cells.flat().filter((cell) => cell.isCorrect).length;
-  const percent = playableCellCount === 0 ? 0 : Math.round((correctCellCount / playableCellCount) * 100);
+  const filledCellCount = cells.flat().filter((cell) => !cell.isBlack && Boolean(cell.actual)).length;
+  const percent = playableCellCount === 0 ? 0 : Math.round((filledCellCount / playableCellCount) * 100);
 
   return {
     cells,
-    correctCellCount,
+    filledCellCount,
     playableCellCount,
     percent,
   };

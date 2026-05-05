@@ -155,7 +155,7 @@ export interface AppRouteContext {
   selectedSolved: boolean;
   boardState: {
     cells: ReturnType<typeof buildBoardState>["cells"];
-    correctCellCount: number;
+    filledCellCount: number;
     playableCellCount: number;
     percent: number;
   } | null;

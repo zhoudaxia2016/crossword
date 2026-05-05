@@ -72,7 +72,7 @@ interface AnswerPageProps {
   selectedData?: LoadedResult | null;
   boardState: {
     cells: CellState[][];
-    correctCellCount: number;
+    filledCellCount: number;
     playableCellCount: number;
     percent: number;
   } | null;
@@ -117,15 +117,14 @@ export default function AnswerPage({
           <h2>{selectedRecord.taskName}</h2>
         </div>
         <div className="workspace-header__actions">
-          <Card className="score-card">
-            <CardContent className="score-card__content">
-              <div className="score-label">完成度</div>
-              <div className="score-value">{boardState.percent}%</div>
-              <div className="score-detail">
-                {boardState.correctCellCount}/{boardState.playableCellCount}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="header-progress" aria-label="填字进度">
+            <div className="header-progress__track">
+              <div
+                className="header-progress__fill"
+                style={{ width: `${boardState.percent}%` }}
+              />
+            </div>
+          </div>
         </div>
       </header>
 
