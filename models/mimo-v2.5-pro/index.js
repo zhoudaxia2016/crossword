@@ -27,7 +27,8 @@ function buildLexiconIndex(lexicon) {
     if (!byLength.has(len)) byLength.set(len, []);
     byLength.get(len).push({
       word: entry.word,
-      reading,
+      reading: entry.reading,
+      normalizedReading: reading,
       chars,
       clue: entry.clue,
       pos: entry.pos,
@@ -339,6 +340,7 @@ export function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreference
         col: slot.col,
         word: entry.word,
         reading: entry.reading,
+        normalizedReading: entry.normalizedReading,
         clue: entry.clue,
       });
     }
@@ -427,6 +429,7 @@ export function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreference
         col: s.col,
         word: e.word,
         reading: e.reading,
+        normalizedReading: e.normalizedReading,
         clue: e.clue,
       });
     }

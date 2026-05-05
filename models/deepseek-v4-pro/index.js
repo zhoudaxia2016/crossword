@@ -38,6 +38,7 @@ function preprocessLexicon(lexicon, gridConstraints) {
     result.push({
       word: entry.word,
       reading: entry.reading,
+      normalizedReading: readingNorm,
       clue: entry.clue,
       pos: entry.pos,
       level: entry.level,
@@ -253,6 +254,7 @@ function solveOne(slots, byLength, wordPreferences) {
         col: slot.col,
         word: entry.word,
         reading: entry.reading,
+        normalizedReading: entry.normalizedReading,
         clue: entry.clue,
       });
 

@@ -14,6 +14,7 @@ export interface PlacedEntry {
   col: number;
   word: string;
   reading: string;
+  normalizedReading?: string;
   clue?: string;
 }
 

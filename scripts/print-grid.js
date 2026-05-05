@@ -81,7 +81,7 @@ function buildEntryCharMap(entries = []) {
   const charMap = new Map();
 
   for (const entry of entries) {
-    const chars = Array.from(entry.reading ?? "");
+    const chars = Array.from(entry.normalizedReading ?? entry.reading ?? "");
     for (let index = 0; index < chars.length; index += 1) {
       const row = entry.direction === "across" ? entry.row : entry.row + index;
       const col = entry.direction === "across" ? entry.col + index : entry.col;

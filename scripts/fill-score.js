@@ -10,7 +10,7 @@ function slotKey(slot) {
 }
 
 function entryKey(entry) {
-  return `${entry.word}::${normalizeKanaText(entry.reading)}`;
+  return `${entry.word}::${normalizeKanaText(entry.normalizedReading ?? entry.reading)}`;
 }
 
 function entrySlotMatch(entry, slot) {
@@ -55,7 +55,7 @@ function validatePuzzle({
   }
 
   for (const entry of entries) {
-    const readingChars = toKanaCells(entry.reading ?? "");
+    const readingChars = toKanaCells(entry.normalizedReading ?? entry.reading ?? "");
     const matchedSlot = slots.find((slot) => entrySlotMatch(entry, slot));
 
     if (!matchedSlot) {

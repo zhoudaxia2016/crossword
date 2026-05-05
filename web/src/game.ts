@@ -30,6 +30,10 @@ export function cellKey(position: CellPosition) {
   return `${position.row}:${position.col}`;
 }
 
+export function getEntryGridReading(entry: Pick<PlacedEntry, "reading" | "normalizedReading">) {
+  return entry.normalizedReading ?? entry.reading;
+}
+
 export function deriveSlotsWithNumbers(slots: Slot[]) {
   const startMap = new Map<string, number>();
   let nextNumber = 1;
@@ -56,7 +60,7 @@ export function deriveSlotsWithNumbers(slots: Slot[]) {
 export function buildExpectedCellMap(puzzle: Puzzle) {
   const map = new Map<string, string>();
   for (const entry of puzzle.entries) {
-    const chars = toKanaCells(entry.reading);
+    const chars = toKanaCells(getEntryGridReading(entry));
     for (let index = 0; index < chars.length; index += 1) {
       const row = entry.direction === "down" ? entry.row + index : entry.row;
       const col = entry.direction === "across" ? entry.col + index : entry.col;
@@ -103,7 +107,7 @@ export function buildBoardState(
   const labels = new Map<string, string[]>();
 
   for (const entry of puzzle.entries) {
-    const expectedChars = toKanaCells(entry.reading);
+    const expectedChars = toKanaCells(getEntryGridReading(entry));
     for (let index = 0; index < expectedChars.length; index += 1) {
       const row = entry.direction === "down" ? entry.row + index : entry.row;
       const col = entry.direction === "across" ? entry.col + index : entry.col;
@@ -153,7 +157,7 @@ export function buildBoardState(
 }
 
 export function isSolved(entry: PlacedEntry, answer: string) {
-  return normalizeKanaText(answer) === normalizeKanaText(entry.reading);
+  return normalizeKanaText(answer) === normalizeKanaText(getEntryGridReading(entry));
 }
 
 export function getSlotCurrentText(slot: Slot, cellValues: Record<string, string>) {

@@ -37,9 +37,10 @@ function buildAdj(slots) {
 function indexLexicon(lexicon) {
   const byLen = new Map();
   for (const e of lexicon) {
-    const len = e.reading.length;
+    const normalizedReading = e.normalizedReading ?? e.reading;
+    const len = normalizedReading.length;
     if (!byLen.has(len)) byLen.set(len, []);
-    byLen.get(len).push(e);
+    byLen.get(len).push({ ...e, normalizedReading });
   }
   return byLen;
 }
@@ -87,7 +88,7 @@ function sortCandidates(candidates, wp) {
       score: wp ? computePreferenceScore(e, wp) : 0,
       jlpt: jlptRank(e.level) ?? 0,
     }));
-    scored.sort((a, b) => b.score - a.score || b.jlpt - a.jlpt || a.entry.reading.length - b.entry.reading.length);
+    scored.sort((a, b) => b.score - a.score || b.jlpt - a.jlpt || a.entry.normalizedReading.length - b.entry.normalizedReading.length);
     candidates.set(k, scored.map(s => s.entry));
   }
 }
@@ -145,7 +146,7 @@ function solveCSP(slots, adj, candidates, rng, nodeLimit) {
       let ok = true;
       for (const { nb, myIdx, nbIdx } of adj.get(bestKey) ?? []) {
         if (!assigned.has(nb)) continue;
-        if (Array.from(entry.reading)[myIdx] !== Array.from(assigned.get(nb).reading)[nbIdx]) {
+        if (Array.from(entry.normalizedReading)[myIdx] !== Array.from(assigned.get(nb).normalizedReading)[nbIdx]) {
           ok = false; break;
         }
       }
@@ -161,7 +162,7 @@ function solveCSP(slots, adj, candidates, rng, nodeLimit) {
         let f = list;
         for (const { nb, myIdx, nbIdx } of adj.get(k) ?? []) {
           if (!assigned.has(nb)) continue;
-          f = f.filter(e => Array.from(e.reading)[myIdx] === Array.from(assigned.get(nb).reading)[nbIdx]);
+          f = f.filter(e => Array.from(e.normalizedReading)[myIdx] === Array.from(assigned.get(nb).normalizedReading)[nbIdx]);
           if (f.length === 0) { dead = true; break; }
         }
         if (!dead) {
@@ -251,12 +252,13 @@ export function fillGrid(input) {
         col: s.col,
         word: entry.word,
         reading: entry.reading,
+        normalizedReading: entry.normalizedReading,
         clue: entry.clue,
       });
     }
     entries.sort((a, b) => a.number - b.number);
 
-    const sig = entries.map(e => `${e.word}::${e.reading}`).sort().join("|");
+    const sig = entries.map(e => `${e.word}::${e.normalizedReading ?? e.reading}`).sort().join("|");
     if (puzzles.some(p => p._sig === sig)) continue;
     puzzles.push({ entries, _sig: sig });
   }

@@ -110,7 +110,10 @@ function printResult(resultFile) {
       console.log("entries:");
       for (const entry of entries) {
         const location = `${entry.number ?? "-"} ${entry.direction ?? "-"} (${entry.row ?? "-"},${entry.col ?? "-"})`;
-        console.log(`- ${location} | word=${entry.word ?? ""} | reading=${entry.reading ?? ""} | clue=${entry.clue ?? ""}`);
+        const normalized = entry.normalizedReading && entry.normalizedReading !== entry.reading
+          ? ` | normalizedReading=${entry.normalizedReading}`
+          : "";
+        console.log(`- ${location} | word=${entry.word ?? ""} | reading=${entry.reading ?? ""}${normalized} | clue=${entry.clue ?? ""}`);
       }
     }
   }

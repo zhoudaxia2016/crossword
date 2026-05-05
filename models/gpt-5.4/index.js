@@ -137,6 +137,7 @@ function normalizeEntry(entry) {
 
   const word = entry.word.trim();
   const reading = entry.reading.trim();
+  const normalizedReading = entry.normalizedReading?.trim() || reading;
   if (!word || !reading) {
     return null;
   }
@@ -144,13 +145,14 @@ function normalizeEntry(entry) {
   return {
     word,
     reading,
+    normalizedReading,
     clue: typeof entry.clue === "string" && entry.clue.trim() ? entry.clue.trim() : undefined,
     pos: typeof entry.pos === "string" ? entry.pos.trim() : undefined,
     level: typeof entry.level === "string" ? entry.level.trim().toUpperCase() : undefined,
     tags: Array.isArray(entry.tags)
       ? entry.tags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim())
       : [],
-    chars: Array.from(reading),
+    chars: Array.from(normalizedReading),
   };
 }
 
@@ -484,6 +486,7 @@ function buildPuzzleEntries(slots, assignment) {
       col: slot.col,
       word: entry.word,
       reading: entry.reading,
+      normalizedReading: entry.normalizedReading,
       clue: entry.clue,
     };
   });

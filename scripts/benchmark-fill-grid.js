@@ -351,15 +351,17 @@ function loadLexiconFromXlsx(xlsxPath) {
     .slice(1)
     .map((row) => {
       const word = row[wordIndex]?.trim();
-      const reading = normalizeKanaText(row[readingIndex]?.trim());
+      const reading = row[readingIndex]?.trim();
+      const normalizedReading = normalizeKanaText(reading);
 
-      if (!word || !reading) {
+      if (!word || !reading || !normalizedReading) {
         return null;
       }
 
       return {
         word,
         reading,
+        normalizedReading,
         clue: clueIndex !== undefined ? row[clueIndex]?.trim() || undefined : undefined,
         pos: posIndex !== undefined ? normalizePos(row[posIndex]) : undefined,
         level: levelIndex !== undefined ? normalizeLevel(row[levelIndex]) : undefined,

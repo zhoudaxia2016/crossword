@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import { groupResults, loadResult } from "../data";
+import { getEntryGridReading } from "../game";
 import type { LoadedResult, PlacedEntry, ResultRecord } from "../types";
 
 /* ──────────────── Helpers ──────────────── */
@@ -31,7 +32,7 @@ function PuzzleGrid({ grid, size, entries }: { grid: string[][]; size: number; e
   const charMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const entry of entries) {
-      const chars = Array.from(entry.reading ?? "");
+      const chars = Array.from(getEntryGridReading(entry) ?? "");
       for (let i = 0; i < chars.length; i++) {
         const row = entry.direction === "across" ? entry.row : entry.row + i;
         const col = entry.direction === "across" ? entry.col + i : entry.col;

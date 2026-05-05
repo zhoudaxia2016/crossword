@@ -5,6 +5,7 @@ export type GridMatrix = string[][];
 export interface LexiconEntry {
   word: string;
   reading: string;
+  normalizedReading?: string;
   clue?: string;
   pos?: string;
   level?: string;
@@ -38,6 +39,7 @@ export interface PlacedEntry {
   col: number;
   word: string;
   reading: string;
+  normalizedReading?: string;
   clue?: string;
 }
 

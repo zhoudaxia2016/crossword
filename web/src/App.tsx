@@ -7,6 +7,7 @@ import {
   buildBoardState,
   deriveSlotsWithNumbers,
   entryKey,
+  getEntryGridReading,
   getSlotCurrentText,
   getSlotResolvedText,
   isSolved,
@@ -444,7 +445,7 @@ export default function App() {
         const slot = numberedSlots.find(
           (item) => item.direction === entry.direction && item.number === entry.number,
         );
-        return slot ? applySlotDraft(slot, entry.reading, cells) : cells;
+        return slot ? applySlotDraft(slot, getEntryGridReading(entry), cells) : cells;
       },
       { ...puzzleCells },
     );
