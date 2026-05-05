@@ -109,48 +109,39 @@ function computePreferenceScore(entry, wordPreferences) {
   return score;
 }
 
-function selectCandidates(slot, cellChars, byLength, usedWords, wordPreferences, filledCount) {
+function selectCandidates(slot, cellChars, byLength, usedWords, wordPreferences, filledCount, bannedWords) {
   let candidates = getCandidates(slot, cellChars, byLength, usedWords);
   if (candidates.length === 0) return candidates;
 
-  // Score all candidates for preference
   const hasPrefs =
-    wordPreferences?.preferredTags?.length > 0 ||
-    wordPreferences?.preferredPos?.length > 0 ||
-    wordPreferences?.preferredLevels?.length > 0;
+    (wordPreferences?.preferredTags?.length ?? 0) > 0 ||
+    (wordPreferences?.preferredPos?.length ?? 0) > 0 ||
+    (wordPreferences?.preferredLevels?.length ?? 0) > 0;
 
-  if (hasPrefs) {
-    for (const entry of candidates) {
-      entry._prefScore = computePreferenceScore(entry, wordPreferences);
+  // Score all candidates
+  for (const entry of candidates) {
+    let sortScore = 0;
+    if (hasPrefs) {
+      sortScore += computePreferenceScore(entry, wordPreferences);
     }
+    // Soft-penalize words used in previous puzzles to encourage diversity
+    // -1 penalty means preferred-but-used words are tried after non-preferred fresh words
+    if (bannedWords?.has(entry.word)) {
+      sortScore -= 1;
+    }
+    entry._sortScore = sortScore;
   }
 
-  // Limit candidates when slot is weakly constrained to prevent explosion
-  // filledCount tells us how many of this slot's cells are already filled
+  // Shuffle first, then stable sort by score (higher first)
+  shuffle(candidates);
+  candidates.sort((a, b) => b._sortScore - a._sortScore);
+
+  // Limit candidates when slot is weakly constrained
   const weakConstraint = filledCount <= 1;
   const MAX_CANDIDATES = weakConstraint ? 60 : Infinity;
 
   if (candidates.length > MAX_CANDIDATES) {
-    // Keep high-preference candidates, fill the rest with random ones
-    if (hasPrefs) {
-      candidates.sort((a, b) => b._prefScore - a._prefScore);
-      const preferred = candidates.filter((e) => e._prefScore > 0);
-      const rest = candidates.filter((e) => e._prefScore === 0);
-      shuffle(rest);
-      candidates = preferred.concat(rest);
-    } else {
-      shuffle(candidates);
-    }
     candidates = candidates.slice(0, MAX_CANDIDATES);
-  } else {
-    // For tightly constrained slots, try all but order by preference
-    if (hasPrefs) {
-      // Group by score, shuffle within groups, then sort groups
-      shuffle(candidates);
-      candidates.sort((a, b) => b._prefScore - a._prefScore);
-    } else {
-      shuffle(candidates);
-    }
   }
 
   return candidates;
@@ -174,9 +165,9 @@ function assignEntryNumbers(slots, placedEntries) {
   }
 }
 
-const MAX_BACKTRACK_NODES = 20000;
+const MAX_BACKTRACK_NODES = 5000;
 
-function solveOne(slots, byLength, wordPreferences) {
+function solveOne(slots, byLength, wordPreferences, bannedWords) {
   const cellChars = new Map();
   const usedWords = new Set();
   const placed = [];
@@ -217,6 +208,7 @@ function solveOne(slots, byLength, wordPreferences) {
       usedWords,
       wordPreferences,
       bestFilled,
+      bannedWords,
     );
 
     if (candidates.length === 0) return false;
@@ -254,7 +246,6 @@ function solveOne(slots, byLength, wordPreferences) {
         col: slot.col,
         word: entry.word,
         reading: entry.reading,
-        normalizedReading: entry.normalizedReading,
         clue: entry.clue,
       });
 
@@ -289,32 +280,14 @@ function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreferences, coun
   }
 
   // Early check: any slot length with zero lexicon entries → impossible
-  const impossibleLengths = new Set();
   for (const slot of slots) {
     const entries = byLength.get(slot.length);
     if (!entries || entries.length === 0) {
-      impossibleLengths.add(slot.length);
-    }
-  }
-  if (impossibleLengths.size > 0) {
-    for (const slot of slots) {
-      delete slot._key;
-      delete slot._cells;
-    }
-    const puzzles = [];
-    return { size, grid, slots, puzzles };
-  }
-
-  // Early check: need at least one unique word per slot
-  const lengthsNeeded = new Map();
-  for (const slot of slots) {
-    lengthsNeeded.set(slot.length, (lengthsNeeded.get(slot.length) ?? 0) + 1);
-  }
-  for (const [len, needed] of lengthsNeeded) {
-    if ((byLength.get(len)?.length ?? 0) < needed) {
-      // Not enough unique words of this length — some slots require same length
-      // Even if enough entries exist, identical length slots may be fillable
-      // Only bail out if 0 entries (handled above)
+      for (const s of slots) {
+        delete s._key;
+        delete s._cells;
+      }
+      return { size, grid, slots, puzzles: [] };
     }
   }
 
@@ -327,13 +300,18 @@ function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreferences, coun
   }
 
   const puzzles = [];
-  const maxAttempts = count * 50;
+  const maxAttempts = count * 20;
+  const allUsedWords = new Set();
 
   for (let attempt = 0; attempt < maxAttempts && puzzles.length < count; attempt++) {
-    const placedEntries = solveOne(slots, byLength, wordPreferences);
+    // Pass banned words from previous puzzles to encourage diversity
+    const placedEntries = solveOne(slots, byLength, wordPreferences, allUsedWords);
     if (placedEntries) {
       assignEntryNumbers(slots, placedEntries);
       puzzles.push({ entries: placedEntries });
+      for (const e of placedEntries) {
+        allUsedWords.add(e.word);
+      }
     }
   }
 

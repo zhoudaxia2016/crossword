@@ -430,17 +430,18 @@ function solveOnePuzzle({ slots, solver, globalUsage, puzzleSeed, nodeBudget }) 
   function orderedDomain(slotIndex, domain) {
     const bucket = solver.lexiconBuckets.get(slots[slotIndex].length);
     const baseScores = solver.baseScoresBySlot[slotIndex];
+    const diversityWeight = 6 + Math.min(4, Math.floor(puzzleSeed / 11));
 
     return [...domain].sort((left, right) => {
       const leftEntry = bucket.entries[left];
       const rightEntry = bucket.entries[right];
       const leftScore =
         baseScores.get(left) -
-        (globalUsage.get(leftEntry.word) ?? 0) * 5 +
+        (globalUsage.get(leftEntry.word) ?? 0) * diversityWeight +
         ((leftEntry.word.charCodeAt(0) + slotIndex * 17 + puzzleSeed * 31) % 37) * 0.0001;
       const rightScore =
         baseScores.get(right) -
-        (globalUsage.get(rightEntry.word) ?? 0) * 5 +
+        (globalUsage.get(rightEntry.word) ?? 0) * diversityWeight +
         ((rightEntry.word.charCodeAt(0) + slotIndex * 17 + puzzleSeed * 31) % 37) * 0.0001;
       return rightScore - leftScore;
     });
@@ -546,12 +547,12 @@ function fillGrid(input) {
         slots,
         solver,
         globalUsage,
-        puzzleSeed: puzzleIndex * 7 + attempt,
-        nodeBudget: puzzleIndex === 0 ? 250000 : 50000,
+        puzzleSeed: puzzleIndex * 11 + attempt,
+        nodeBudget: puzzleIndex === 0 ? 250000 : 25000,
       });
 
       if (!solved) {
-        break;
+        continue;
       }
 
       if (!fallbackAssignment) {
@@ -566,7 +567,7 @@ function fillGrid(input) {
       }
 
       for (const entry of solved) {
-        globalUsage.set(entry.word, (globalUsage.get(entry.word) ?? 0) + 2);
+        globalUsage.set(entry.word, (globalUsage.get(entry.word) ?? 0) + 3);
       }
     }
 

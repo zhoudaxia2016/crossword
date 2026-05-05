@@ -223,9 +223,7 @@ export function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreference
     return s;
   }
 
-  for (const [, candidates] of byLength) {
-    candidates.sort((a, b) => candidateScore(b) - candidateScore(a));
-  }
+  const hasPrefs = prefTags.size > 0 || prefPos.size > 0 || prefLevels.size > 0;
 
   const slotNumberMap = computeSlotNumbers(slots);
   const slotKeys = slots.map((s) => `${s.direction}:${s.row}:${s.col}:${s.length}`);
@@ -294,10 +292,27 @@ export function fillGrid({ grid, slots, lexicon, gridConstraints, wordPreference
       let cands = getMatchingCandidates(next.idx, slots, gridState, usedWords, byLength, charIndex);
       if (cands.length === 0) return false;
 
-      // Shuffle for variety
-      for (let i = cands.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [cands[i], cands[j]] = [cands[j], cands[i]];
+      // Shuffle with preference bias: preferred candidates tried first, but all remain available
+      if (hasPrefs) {
+        const preferred = [];
+        const rest = [];
+        for (const e of cands) {
+          (candidateScore(e) > 0 ? preferred : rest).push(e);
+        }
+        for (let i = preferred.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [preferred[i], preferred[j]] = [preferred[j], preferred[i]];
+        }
+        for (let i = rest.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [rest[i], rest[j]] = [rest[j], rest[i]];
+        }
+        cands = [...preferred, ...rest];
+      } else {
+        for (let i = cands.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [cands[i], cands[j]] = [cands[j], cands[i]];
+        }
       }
 
       for (const entry of cands) {

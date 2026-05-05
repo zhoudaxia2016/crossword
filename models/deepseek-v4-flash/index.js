@@ -34,21 +34,26 @@ function buildAdj(slots) {
 
 // ── Lexicon ──────────────────────────────────────────────────────
 
+function jlptRank(level) {
+  if (typeof level !== "string") return null;
+  const m = level.match(/^N([1-5])$/i);
+  return m ? Number(m[1]) : null;
+}
+
 function indexLexicon(lexicon) {
   const byLen = new Map();
   for (const e of lexicon) {
     const normalizedReading = e.normalizedReading ?? e.reading;
     const len = normalizedReading.length;
     if (!byLen.has(len)) byLen.set(len, []);
-    byLen.get(len).push({ ...e, normalizedReading });
+    byLen.get(len).push({
+      ...e,
+      normalizedReading,
+      readingChars: [...normalizedReading],
+      jlptRank: jlptRank(e.level) ?? 0,
+    });
   }
   return byLen;
-}
-
-function jlptRank(level) {
-  if (typeof level !== "string") return null;
-  const m = level.match(/^N([1-5])$/i);
-  return m ? Number(m[1]) : null;
 }
 
 function buildCandidates(lexiconByLen, slots) {
@@ -86,9 +91,8 @@ function sortCandidates(candidates, wp) {
     const scored = list.map(e => ({
       entry: e,
       score: wp ? computePreferenceScore(e, wp) : 0,
-      jlpt: jlptRank(e.level) ?? 0,
     }));
-    scored.sort((a, b) => b.score - a.score || b.jlpt - a.jlpt || a.entry.normalizedReading.length - b.entry.normalizedReading.length);
+    scored.sort((a, b) => b.score - a.score || b.entry.jlptRank - a.entry.jlptRank || a.entry.readingChars.length - b.entry.readingChars.length);
     candidates.set(k, scored.map(s => s.entry));
   }
 }
@@ -146,7 +150,7 @@ function solveCSP(slots, adj, candidates, rng, nodeLimit) {
       let ok = true;
       for (const { nb, myIdx, nbIdx } of adj.get(bestKey) ?? []) {
         if (!assigned.has(nb)) continue;
-        if (Array.from(entry.normalizedReading)[myIdx] !== Array.from(assigned.get(nb).normalizedReading)[nbIdx]) {
+        if (entry.readingChars[myIdx] !== assigned.get(nb).readingChars[nbIdx]) {
           ok = false; break;
         }
       }
@@ -162,7 +166,8 @@ function solveCSP(slots, adj, candidates, rng, nodeLimit) {
         let f = list;
         for (const { nb, myIdx, nbIdx } of adj.get(k) ?? []) {
           if (!assigned.has(nb)) continue;
-          f = f.filter(e => Array.from(e.normalizedReading)[myIdx] === Array.from(assigned.get(nb).normalizedReading)[nbIdx]);
+          const c = assigned.get(nb).readingChars[nbIdx];
+          f = f.filter(e => e.readingChars[myIdx] === c);
           if (f.length === 0) { dead = true; break; }
         }
         if (!dead) {
@@ -230,17 +235,20 @@ export function fillGrid(input) {
   }
 
   const puzzles = [];
+  let prefFailures = 0;
 
   for (let attempt = 0; attempt < count * 8 && puzzles.length < count; attempt++) {
-    const usePref = hasAnyPrefs && attempt < count * 3;
+    const usePref = hasAnyPrefs && attempt < count * 2 && prefFailures < Math.ceil(count / 2);
     const cset = usePref ? prefCandidates : baseCandidates;
     const rng = createRng(attempt * 104729 + 1);
-    const limit = usePref ? 20000 : 0;
+    const limit = usePref ? 15000 : 0;
     const result = solveCSP(slots, adj, cset, rng, limit);
     if (!result) {
       if (!usePref) break;
+      prefFailures++;
       continue;
     }
+    prefFailures = 0;
 
     const entries = [];
     for (const [k, entry] of result) {
