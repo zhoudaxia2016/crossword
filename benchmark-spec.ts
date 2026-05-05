@@ -42,12 +42,6 @@ export interface PlacedEntry {
 }
 
 export interface BenchmarkModule {
-  generateGrid(input: { gridConstraints: GridConstraints }): {
-    size: number;
-    grid: GridMatrix;
-    slots: Slot[];
-  };
-
   fillGrid(input: {
     grid: GridMatrix;
     slots: Slot[];
@@ -62,16 +56,5 @@ export interface BenchmarkModule {
     puzzles: Array<{
       entries: PlacedEntry[];
     }>;
-  };
-
-  generateCrossword(input: {
-    lexicon: LexiconEntry[];
-    gridConstraints: GridConstraints;
-    wordPreferences?: WordPreferences;
-  }): {
-    size: number;
-    grid: GridMatrix;
-    slots: Slot[];
-    entries: PlacedEntry[];
   };
 }
