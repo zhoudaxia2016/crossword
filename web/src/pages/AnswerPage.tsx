@@ -6,6 +6,8 @@ import {
   type CellState,
   type SlotWithNumber,
   getPrimarySlotAtCell,
+  getSlotResolvedText,
+  isSolved,
   isCellInSlot,
   slotKey,
 } from "../game";
@@ -49,7 +51,12 @@ const AnswerEditor = memo(function AnswerEditor({
         </CardTitle>
       </CardHeader>
       <CardContent className="answer-panel__body">
-        {isSolved && selectedEntry ? <div className="answer-word">{selectedEntry.word}</div> : null}
+        {isSolved && selectedEntry ? (
+          <div className="answer-solution">
+            <div className="answer-word">{selectedEntry.word}</div>
+            <div className="answer-reading">{selectedEntry.reading}</div>
+          </div>
+        ) : null}
         <div className="answer-clue">{selectedEntry?.clue ?? ""}</div>
         <Input
           value={draftAnswer}
@@ -80,6 +87,8 @@ interface AnswerPageProps {
   selectedSlot?: SlotWithNumber;
   hoveredSlot?: SlotWithNumber;
   selectedEntry?: PlacedEntry;
+  revealed: boolean;
+  puzzleCells: Record<string, string>;
   currentSlotText: string;
   selectedSolved: boolean;
   puzzleIndex: number;
@@ -97,6 +106,8 @@ export default function AnswerPage({
   selectedSlot,
   hoveredSlot,
   selectedEntry,
+  revealed,
+  puzzleCells,
   currentSlotText,
   selectedSolved,
   puzzleIndex,
@@ -251,18 +262,31 @@ export default function AnswerPage({
                     selectedSlot &&
                     slot.number === selectedSlot.number &&
                     slot.direction === selectedSlot.direction;
-
+                  const solved =
+                    entry ? isSolved(entry, getSlotResolvedText(slot, puzzleCells)) : false;
                   return (
                     <button
                       key={slotKey(slot.direction, slot.number)}
                       type="button"
-                      className={cn("clue-item", isSelected && "is-selected")}
+                      className={cn(
+                        "clue-item",
+                        isSelected && "is-selected",
+                        entry && (solved || revealed) && "is-solved",
+                      )}
                       onClick={() => onSelectSlot(slot)}
                       onMouseEnter={() => onSetHoveredSlotKey(slotKey(slot.direction, slot.number))}
                       onMouseLeave={() => onSetHoveredSlotKey("")}
                     >
                       <span className="clue-item__number">{slot.number}</span>
-                      <span className="clue-item__text">{entry?.clue ?? ""}</span>
+                      <span className="clue-item__body">
+                        <span className="clue-item__text">{entry?.clue ?? ""}</span>
+                        {entry && (solved || revealed) ? (
+                          <span className="clue-item__answer">
+                            <span className="clue-item__word">{entry.word}</span>
+                            <span className="clue-item__reading">{entry.reading}</span>
+                          </span>
+                        ) : null}
+                      </span>
                     </button>
                   );
                 })}

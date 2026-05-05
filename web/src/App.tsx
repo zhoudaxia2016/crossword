@@ -152,6 +152,8 @@ export interface AppRouteContext {
   selectedSlot?: SlotWithNumber;
   hoveredSlot?: SlotWithNumber;
   selectedEntry?: PlacedEntry;
+  revealed: boolean;
+  puzzleCells: Record<string, string>;
   currentSlotText: string;
   selectedSolved: boolean;
   boardState: {
@@ -267,6 +269,7 @@ export default function App() {
   const [selectedSlotKey, setSelectedSlotKey] = useState("");
   const [hoveredSlotKey, setHoveredSlotKey] = useState("");
   const [cellAnswers, setCellAnswers] = useState<CellStore>({});
+  const [revealed, setRevealed] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -431,12 +434,18 @@ export default function App() {
     setSelectedPuzzleIndex(0);
     setSelectedSlotKey("");
     setHoveredSlotKey("");
+    setRevealed(false);
   }, [templateParam]);
 
   useEffect(() => {
     setSelectedSlotKey("");
     setHoveredSlotKey("");
+    setRevealed(false);
   }, [puzzleIndex]);
+
+  useEffect(() => {
+    setRevealed(false);
+  }, [selectedRecord?.id]);
 
   function revealAllAnswers() {
     if (!selectedPuzzle) return;
@@ -453,6 +462,7 @@ export default function App() {
       ...prev,
       [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: nextCells },
     }));
+    setRevealed(true);
   }
 
   function resetPuzzle() {
@@ -460,6 +470,7 @@ export default function App() {
       ...prev,
       [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: {} },
     }));
+    setRevealed(false);
   }
 
   function confirmDraft(draftAnswer: string) {
@@ -489,6 +500,8 @@ export default function App() {
     selectedSlot,
     hoveredSlot,
     selectedEntry,
+    revealed,
+    puzzleCells,
     currentSlotText,
     selectedSolved,
     boardState,
@@ -519,7 +532,11 @@ export default function App() {
       />
 
       <div className="content-center">
-        <main className="main-panel main-panel--review">
+        <main
+          className={`main-panel main-panel--review ${
+            mode === "answer" ? "main-panel--answer" : "main-panel--benchmark"
+          }`}
+        >
           <Outlet context={outletContext} />
         </main>
       </div>

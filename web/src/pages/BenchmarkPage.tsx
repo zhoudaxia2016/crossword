@@ -227,34 +227,36 @@ export default function BenchmarkPage({
           </h2>
 
           <Card style={{ padding: 0, overflow: "hidden" }}>
-            <table className="leaderboard">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Model</th>
-                  <th>finalScore</th>
-                  <th>overall</th>
-                  <th>validRate</th>
-                  <th>prefFit</th>
-                  <th>variety</th>
-                  <th>Avg Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedRun.models.map((m, i) => (
-                  <tr key={m.name} className={i === 0 ? "r1" : ""}>
-                    <td>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</td>
-                    <td>{m.name}</td>
-                    <td>{m.avgFinalScore}</td>
-                    <td>{m.avgOverallScore}</td>
-                    <td>{m.avgVpr}</td>
-                    <td>{m.avgPf}</td>
-                    <td>{m.avgCpv}</td>
-                    <td>{Math.round(m.avgTime)}ms</td>
+            <div className="leaderboard-wrap">
+              <table className="leaderboard">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Model</th>
+                    <th>finalScore</th>
+                    <th>overall</th>
+                    <th>validRate</th>
+                    <th>prefFit</th>
+                    <th>variety</th>
+                    <th>Avg Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {selectedRun.models.map((m, i) => (
+                    <tr key={m.name} className={i === 0 ? "r1" : ""}>
+                      <td>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</td>
+                      <td>{m.name}</td>
+                      <td>{m.avgFinalScore}</td>
+                      <td>{m.avgOverallScore}</td>
+                      <td>{m.avgVpr}</td>
+                      <td>{m.avgPf}</td>
+                      <td>{m.avgCpv}</td>
+                      <td>{Math.round(m.avgTime)}ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           {selectedRun.models.filter((m) => m.name === model).map((mdl) => (

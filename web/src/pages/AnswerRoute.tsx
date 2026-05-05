@@ -14,6 +14,8 @@ export default function AnswerRoute() {
     selectedSlot,
     hoveredSlot,
     selectedEntry,
+    revealed,
+    puzzleCells,
     currentSlotText,
     selectedSolved,
     selectedPuzzleIndex,
@@ -38,6 +40,8 @@ export default function AnswerRoute() {
       selectedSlot={selectedSlot}
       hoveredSlot={hoveredSlot}
       selectedEntry={selectedEntry}
+      revealed={revealed}
+      puzzleCells={puzzleCells}
       currentSlotText={currentSlotText}
       selectedSolved={selectedSolved}
       puzzleIndex={selectedPuzzleIndex}
