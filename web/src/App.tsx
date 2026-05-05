@@ -509,7 +509,7 @@ export default function App() {
         onSelectRun={handleSelectRun}
         onSelectModel={handleSelectModel}
         onSelectTemplate={handleSelectTemplate}
-        showTemplate={true}
+        showTemplate={mode === "answer"}
         puzzles={puzzles}
         puzzleIndex={puzzleIndex}
         onSelectPuzzle={setSelectedPuzzleIndex}
