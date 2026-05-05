@@ -7,7 +7,6 @@ import {
   buildBoardState,
   deriveSlotsWithNumbers,
   entryKey,
-  getEntryGridReading,
   getSlotCurrentText,
   getSlotResolvedText,
   isSolved,
@@ -22,6 +21,7 @@ import type {
 } from "./types";
 
 type CellStore = Record<string, Record<number, Record<string, string>>>;
+type SubmissionStore = Record<string, Record<number, number | undefined>>;
 
 function buildEntryMap(entries: PlacedEntry[]) {
   return new Map(entries.map((entry) => [slotKey(entry.direction, entry.number), entry]));
@@ -138,7 +138,7 @@ interface TopBarProps {
   puzzleIndex?: number;
   onSelectPuzzle?: (index: number) => void;
   onReset?: () => void;
-  onReveal?: () => void;
+  onSubmit?: () => void;
 }
 
 export interface AppRouteContext {
@@ -152,10 +152,10 @@ export interface AppRouteContext {
   selectedSlot?: SlotWithNumber;
   hoveredSlot?: SlotWithNumber;
   selectedEntry?: PlacedEntry;
-  revealed: boolean;
   puzzleCells: Record<string, string>;
   currentSlotText: string;
   selectedSolved: boolean;
+  submittedScore?: number;
   boardState: {
     cells: ReturnType<typeof buildBoardState>["cells"];
     filledCellCount: number;
@@ -182,7 +182,7 @@ function TopBar({
   puzzleIndex,
   onSelectPuzzle,
   onReset,
-  onReveal,
+  onSubmit,
 }: TopBarProps) {
   const grouped = useMemo(() => groupResults(records), [records]);
   const timestamps = useMemo(() => grouped.map((g) => g.timestamp), [grouped]);
@@ -249,8 +249,8 @@ function TopBar({
               <Button variant="outline" size="sm" onClick={onReset} type="button">
                 清空
               </Button>
-              <Button size="sm" onClick={onReveal} type="button">
-                答案
+              <Button size="sm" onClick={onSubmit} type="button">
+                提交
               </Button>
             </div>
           </>
@@ -269,7 +269,7 @@ export default function App() {
   const [selectedSlotKey, setSelectedSlotKey] = useState("");
   const [hoveredSlotKey, setHoveredSlotKey] = useState("");
   const [cellAnswers, setCellAnswers] = useState<CellStore>({});
-  const [revealed, setRevealed] = useState(false);
+  const [submissionScores, setSubmissionScores] = useState<SubmissionStore>({});
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -391,6 +391,7 @@ export default function App() {
   const entryMap = useMemo(() => buildEntryMap(selectedPuzzle?.entries ?? []), [selectedPuzzle]);
   const taskAnswers = cellAnswers[selectedRecord?.id ?? ""] ?? {};
   const puzzleCells = taskAnswers[puzzleIndex] ?? {};
+  const submittedScore = submissionScores[selectedRecord?.id ?? ""]?.[puzzleIndex];
 
   const boardState = useMemo(
     () =>
@@ -434,43 +435,35 @@ export default function App() {
     setSelectedPuzzleIndex(0);
     setSelectedSlotKey("");
     setHoveredSlotKey("");
-    setRevealed(false);
   }, [templateParam]);
 
   useEffect(() => {
     setSelectedSlotKey("");
     setHoveredSlotKey("");
-    setRevealed(false);
   }, [puzzleIndex]);
-
-  useEffect(() => {
-    setRevealed(false);
-  }, [selectedRecord?.id]);
-
-  function revealAllAnswers() {
-    if (!selectedPuzzle) return;
-    const nextCells = selectedPuzzle.entries.reduce(
-      (cells, entry) => {
-        const slot = numberedSlots.find(
-          (item) => item.direction === entry.direction && item.number === entry.number,
-        );
-        return slot ? applySlotDraft(slot, getEntryGridReading(entry), cells) : cells;
-      },
-      { ...puzzleCells },
-    );
-    setCellAnswers((prev) => ({
-      ...prev,
-      [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: nextCells },
-    }));
-    setRevealed(true);
-  }
 
   function resetPuzzle() {
     setCellAnswers((prev) => ({
       ...prev,
       [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: {} },
     }));
-    setRevealed(false);
+    setSubmissionScores((prev) => ({
+      ...prev,
+      [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: undefined },
+    }));
+  }
+
+  function submitPuzzle() {
+    if (!boardState) return;
+    const correctCount = boardState.cells.flat().filter((cell) => !cell.isBlack && cell.isCorrect).length;
+    const score =
+      boardState.playableCellCount === 0
+        ? 0
+        : Math.round((correctCount / boardState.playableCellCount) * 100);
+    setSubmissionScores((prev) => ({
+      ...prev,
+      [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: score },
+    }));
   }
 
   function confirmDraft(draftAnswer: string) {
@@ -482,6 +475,10 @@ export default function App() {
         [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: nextCells },
       }));
     });
+    setSubmissionScores((prev) => ({
+      ...prev,
+      [selectedRecord?.id ?? ""]: { ...(prev[selectedRecord?.id ?? ""] ?? {}), [puzzleIndex]: undefined },
+    }));
   }
 
   function selectSlot(slot: SlotWithNumber | undefined) {
@@ -500,10 +497,10 @@ export default function App() {
     selectedSlot,
     hoveredSlot,
     selectedEntry,
-    revealed,
     puzzleCells,
     currentSlotText,
     selectedSolved,
+    submittedScore,
     boardState,
     error,
     openTemplate,
@@ -528,7 +525,7 @@ export default function App() {
         puzzleIndex={puzzleIndex}
         onSelectPuzzle={setSelectedPuzzleIndex}
         onReset={resetPuzzle}
-        onReveal={revealAllAnswers}
+        onSubmit={submitPuzzle}
       />
 
       <div className="content-center">

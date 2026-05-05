@@ -309,6 +309,13 @@ function intersectSorted(left, right) {
 
 function buildSolver(slots, lexiconBuckets, wordPreferences) {
   const crossings = buildCrossings(slots);
+  const neighbors = crossings.map((edges) => {
+    const seen = new Set();
+    for (const edge of edges) {
+      seen.add(edge.otherSlot);
+    }
+    return [...seen];
+  });
   const candidateIndexesBySlot = [];
   const rarityBySlot = [];
 
@@ -381,6 +388,7 @@ function buildSolver(slots, lexiconBuckets, wordPreferences) {
 
   return {
     crossings,
+    neighbors,
     domainForSlot,
     lexiconBuckets,
     baseScoresBySlot,
@@ -460,7 +468,18 @@ function solveOnePuzzle({ slots, solver, globalUsage, puzzleSeed, nodeBudget }) 
       assignmentBySlot[next.slotIndex] = entry;
       usedWords.add(entry.word);
 
-      if (backtrack()) {
+      let viable = true;
+      for (const neighborSlot of solver.neighbors[next.slotIndex]) {
+        if (assignmentBySlot[neighborSlot]) {
+          continue;
+        }
+        if (solver.domainForSlot(neighborSlot, assignmentBySlot, usedWords).length === 0) {
+          viable = false;
+          break;
+        }
+      }
+
+      if (viable && backtrack()) {
         return true;
       }
 
@@ -516,6 +535,7 @@ function fillGrid(input) {
   const globalUsage = new Map();
   const seenSignatures = new Set();
   const puzzles = [];
+  const solvedAssignments = [];
 
   for (let puzzleIndex = 0; puzzleIndex < count; puzzleIndex += 1) {
     let assignment = null;
@@ -567,8 +587,16 @@ function fillGrid(input) {
       globalUsage.set(entry.word, (globalUsage.get(entry.word) ?? 0) + 1);
     }
 
+    solvedAssignments.push(assignment);
     puzzles.push({
       entries: buildPuzzleEntries(slots, assignment),
+    });
+  }
+
+  while (puzzles.length < count && solvedAssignments.length > 0) {
+    const fallback = solvedAssignments[puzzles.length % solvedAssignments.length];
+    puzzles.push({
+      entries: buildPuzzleEntries(slots, fallback),
     });
   }
 

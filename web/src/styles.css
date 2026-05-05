@@ -156,6 +156,17 @@ input {
   gap: 8px;
 }
 
+.score-badge {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--good-text);
+  white-space: nowrap;
+}
+
+.score-badge.is-perfect {
+  color: var(--good);
+}
+
 /* ---- Dropdown (run/model/task selectors) ---- */
 .dd-wrapper {
   position: relative;
@@ -497,6 +508,11 @@ input {
   color: var(--good-text);
 }
 
+.board-cell.is-incorrect {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
 .board-cell.is-hovered {
   border-color: var(--primary);
   background: #eff6ff;
@@ -622,6 +638,16 @@ input {
   background: color-mix(in srgb, var(--selected-cell) 55%, white);
   border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
   color: var(--text);
+}
+
+.clue-item.is-solved {
+  border-color: color-mix(in srgb, var(--good) 40%, var(--line));
+  background: color-mix(in srgb, var(--good-bg) 55%, white);
+}
+
+.clue-item.is-wrong {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger-bg) 55%, white);
 }
 
 .clue-item__number {

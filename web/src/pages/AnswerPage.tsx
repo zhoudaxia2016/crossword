@@ -23,6 +23,7 @@ interface AnswerEditorProps {
   selectedSlot?: SlotWithNumber;
   currentText: string;
   isSolved: boolean;
+  submitted: boolean;
   onConfirm: (draft: string) => void;
 }
 
@@ -33,6 +34,7 @@ const AnswerEditor = memo(function AnswerEditor({
   selectedSlot,
   currentText,
   isSolved,
+  submitted,
   onConfirm,
 }: AnswerEditorProps) {
   const [draftAnswer, setDraftAnswer] = useState("");
@@ -51,7 +53,7 @@ const AnswerEditor = memo(function AnswerEditor({
         </CardTitle>
       </CardHeader>
       <CardContent className="answer-panel__body">
-        {isSolved && selectedEntry ? (
+        {submitted && isSolved && selectedEntry ? (
           <div className="answer-solution">
             <div className="answer-word">{selectedEntry.word}</div>
             <div className="answer-reading">{selectedEntry.reading}</div>
@@ -87,10 +89,10 @@ interface AnswerPageProps {
   selectedSlot?: SlotWithNumber;
   hoveredSlot?: SlotWithNumber;
   selectedEntry?: PlacedEntry;
-  revealed: boolean;
   puzzleCells: Record<string, string>;
   currentSlotText: string;
   selectedSolved: boolean;
+  submittedScore?: number;
   puzzleIndex: number;
   error: string;
   onSelectSlot: (slot: SlotWithNumber | undefined) => void;
@@ -106,10 +108,10 @@ export default function AnswerPage({
   selectedSlot,
   hoveredSlot,
   selectedEntry,
-  revealed,
   puzzleCells,
   currentSlotText,
   selectedSolved,
+  submittedScore,
   puzzleIndex,
   error,
   onSelectSlot,
@@ -167,14 +169,20 @@ export default function AnswerPage({
           <h2>{selectedRecord.templateName}</h2>
         </div>
         <div className="workspace-header__actions">
-          <div className="header-progress" aria-label="填字进度">
-            <div className="header-progress__track">
-              <div
-                className="header-progress__fill"
-                style={{ width: `${boardState.percent}%` }}
-              />
+          {submittedScore !== undefined ? (
+            <div className={cn("score-badge", submittedScore === 100 && "is-perfect")}>
+              正确率 {submittedScore}%
             </div>
-          </div>
+          ) : (
+            <div className="header-progress" aria-label="填字进度">
+              <div className="header-progress__track">
+                <div
+                  className="header-progress__fill"
+                  style={{ width: `${boardState.percent}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -203,7 +211,12 @@ export default function AnswerPage({
                     className={cn(
                       "board-cell",
                       cell.isBlack && "is-black",
-                      cell.isCorrect && "is-correct",
+                      submittedScore !== undefined && cell.isCorrect && "is-correct",
+                      submittedScore !== undefined &&
+                        !cell.isBlack &&
+                        Boolean(cell.actual) &&
+                        !cell.isCorrect &&
+                        "is-incorrect",
                       selectedSlot && isCellInSlot(selectedSlot, row, col) && "is-selected",
                       hoveredSlot && isCellInSlot(hoveredSlot, row, col) && "is-hovered",
                     )}
@@ -235,6 +248,7 @@ export default function AnswerPage({
             selectedSlot={selectedSlot}
             currentText={currentSlotText}
             isSolved={selectedSolved}
+            submitted={submittedScore !== undefined}
             onConfirm={onConfirmDraft}
           />
           <Card className="clue-list-card">
@@ -264,6 +278,11 @@ export default function AnswerPage({
                     slot.direction === selectedSlot.direction;
                   const solved =
                     entry ? isSolved(entry, getSlotResolvedText(slot, puzzleCells)) : false;
+                  const wrong =
+                    submittedScore !== undefined &&
+                    entry &&
+                    !solved &&
+                    getSlotResolvedText(slot, puzzleCells).trim().length > 0;
                   return (
                     <button
                       key={slotKey(slot.direction, slot.number)}
@@ -271,7 +290,8 @@ export default function AnswerPage({
                       className={cn(
                         "clue-item",
                         isSelected && "is-selected",
-                        entry && (solved || revealed) && "is-solved",
+                        entry && solved && submittedScore !== undefined && "is-solved",
+                        wrong && "is-wrong",
                       )}
                       onClick={() => onSelectSlot(slot)}
                       onMouseEnter={() => onSetHoveredSlotKey(slotKey(slot.direction, slot.number))}
@@ -280,7 +300,7 @@ export default function AnswerPage({
                       <span className="clue-item__number">{slot.number}</span>
                       <span className="clue-item__body">
                         <span className="clue-item__text">{entry?.clue ?? ""}</span>
-                        {entry && (solved || revealed) ? (
+                        {entry && submittedScore !== undefined ? (
                           <span className="clue-item__answer">
                             <span className="clue-item__word">{entry.word}</span>
                             <span className="clue-item__reading">{entry.reading}</span>
