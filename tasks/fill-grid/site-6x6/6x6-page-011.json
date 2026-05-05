@@ -140,6 +140,7 @@
       "length": 3
     }
   ],
-  "taskId": "site-6x6/6x6-page-011",
-  "taskName": "クロスワード 6×6(ジツム、メカ)_問題11"
+  "taskId": 26,
+  "taskName": "クロスワード 6×6(ジツム、メカ)_問題11",
+  "taskKey": "site-6x6/6x6-page-011"
 }

@@ -146,6 +146,7 @@
       "length": 3
     }
   ],
-  "taskId": "site-6x6/6x6-page-005",
-  "taskName": "クロスワード 6×6(テイネイ、プロ)_問題5"
+  "taskId": 20,
+  "taskName": "クロスワード 6×6(テイネイ、プロ)_問題5",
+  "taskKey": "site-6x6/6x6-page-005"
 }

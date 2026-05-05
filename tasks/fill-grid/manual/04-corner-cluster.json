@@ -153,6 +153,7 @@
       "length": 7
     }
   ],
-  "taskId": "manual/04-corner-cluster",
-  "taskName": "04. corner cluster"
+  "taskId": 4,
+  "taskName": "04. corner cluster",
+  "taskKey": "manual/04-corner-cluster"
 }

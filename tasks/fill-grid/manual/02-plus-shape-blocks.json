@@ -213,6 +213,7 @@
       "length": 3
     }
   ],
-  "taskId": "manual/02-plus-shape-blocks",
-  "taskName": "02. plus-shape blocks"
+  "taskId": 2,
+  "taskName": "02. plus-shape blocks",
+  "taskKey": "manual/02-plus-shape-blocks"
 }

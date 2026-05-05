@@ -156,9 +156,9 @@ function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function saveModelTaskResult(modelName, taskId, payload) {
+function saveModelTaskResult(modelName, taskKey, payload) {
   const modelDir = join(RUN_RESULTS_DIR, modelName);
-  const outputFile = join(modelDir, `${taskId}.json`);
+  const outputFile = join(modelDir, `${taskKey}.json`);
   mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return outputFile;
@@ -179,16 +179,16 @@ function computeTimeScores(allResults) {
         continue;
       }
 
-      const current = fastestByTask.get(task.task);
+      const current = fastestByTask.get(task.taskKey);
       if (current === undefined || task.elapsedMs < current) {
-        fastestByTask.set(task.task, task.elapsedMs);
+        fastestByTask.set(task.taskKey, task.elapsedMs);
       }
     }
   }
 
   for (const result of allResults) {
     for (const task of result.results) {
-      const fastestMs = fastestByTask.get(task.task);
+      const fastestMs = fastestByTask.get(task.taskKey);
       const relativeTimeScore =
         !task.error && typeof task.elapsedMs === "number" && task.elapsedMs > 0 && typeof fastestMs === "number"
           ? Math.min(1, fastestMs / task.elapsedMs)
@@ -411,15 +411,21 @@ function loadGridTasks(gridsDir, cliOptions) {
       const size = cliOptions.size ?? data.size;
       const minEntryLength = cliOptions.minEntryLength ?? data.minEntryLength ?? 3;
       const maxEntryLength = cliOptions.maxEntryLength ?? data.maxEntryLength ?? size;
-      const taskId =
-        data.taskId
+      const taskId = data.taskId;
+      const taskKey =
+        data.taskKey
         ?? (isUnderTasksRoot
           ? relative(TASKS_ROOT, fullPath).replace(/\\/g, "/").replace(/\.json$/u, "")
-          : file.replace(/\.json$/u, ""));
-      const taskName = data.taskName ?? data.title ?? data.name ?? taskId.split("/").at(-1);
+          : relative(dir, fullPath).replace(/\\/g, "/").replace(/\.json$/u, ""));
+      const taskName = data.taskName ?? data.title ?? data.name ?? taskKey.split("/").at(-1);
+
+      if (!Number.isInteger(taskId) || taskId <= 0) {
+        throw new Error(`task file is missing numeric taskId: ${fullPath}`);
+      }
 
       return {
         taskId,
+        taskKey,
         taskName,
         input: {
           grid: data.grid ?? buildGridFromSlots(size, data.slots),
@@ -514,8 +520,9 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
 
       if (!sameGrid || !sameSlots) {
         const firstIssue = !sameGrid ? "fillGrid changed grid" : "fillGrid changed slots";
-        const resultFile = saveModelTaskResult(modelName, task.taskId, {
+        const resultFile = saveModelTaskResult(modelName, task.taskKey, {
           taskId: task.taskId,
+          taskKey: task.taskKey,
           taskName: task.taskName,
           puzzles: Array.isArray(output?.puzzles) ? output.puzzles : [],
           summary: {
@@ -530,6 +537,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         results.push({
           task: task.taskName,
           taskId: task.taskId,
+          taskKey: task.taskKey,
           score: 0,
           validPuzzleRate: 0,
           elapsedMs,
@@ -565,8 +573,9 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         firstIssue = "returned fewer puzzles than requested";
       }
 
-      const resultFile = saveModelTaskResult(modelName, task.taskId, {
+      const resultFile = saveModelTaskResult(modelName, task.taskKey, {
         taskId: task.taskId,
+        taskKey: task.taskKey,
         taskName: task.taskName,
         puzzles: output.puzzles ?? [],
         summary: {
@@ -582,6 +591,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       results.push({
         task: task.taskName,
         taskId: task.taskId,
+        taskKey: task.taskKey,
         score: score.overallScore,
         validPuzzleRate: score.breakdown.validPuzzleRate,
         preferenceFit: score.breakdown.preferenceFit,
@@ -594,8 +604,9 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const resultFile = saveModelTaskResult(modelName, task.taskId, {
+      const resultFile = saveModelTaskResult(modelName, task.taskKey, {
         taskId: task.taskId,
+        taskKey: task.taskKey,
         taskName: task.taskName,
         puzzles: [],
         error: message,
@@ -610,6 +621,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       results.push({
         task: task.taskName,
         taskId: task.taskId,
+        taskKey: task.taskKey,
         score: 0,
         validPuzzleRate: 0,
         elapsedMs: null,

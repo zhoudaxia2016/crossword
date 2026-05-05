@@ -140,6 +140,7 @@
       "length": 6
     }
   ],
-  "taskId": "site-6x6/6x6-page-006",
-  "taskName": "クロスワード 6×6(チヨウテイ、ウレツコ)_問題6"
+  "taskId": 21,
+  "taskName": "クロスワード 6×6(チヨウテイ、ウレツコ)_問題6",
+  "taskKey": "site-6x6/6x6-page-006"
 }

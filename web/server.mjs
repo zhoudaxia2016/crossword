@@ -69,16 +69,18 @@ function buildManifest() {
       for (const fullPath of listJsonFilesRecursive(modelDir)) {
         const fileName = path.relative(modelDir, fullPath).replace(/\\/g, "/");
         const result = JSON.parse(fs.readFileSync(fullPath, "utf8"));
-        const taskId = result.taskId ?? fileName.replace(/\.json$/u, "");
+        const taskKey = result.taskKey ?? fileName.replace(/\.json$/u, "");
+        const taskId = result.taskId;
         records.push({
           id: `${timestamp}/${model}/${fileName}`,
           timestamp,
           model,
           fileName,
           taskId,
-          taskName: result.taskName ?? taskId.split("/").at(-1),
+          taskKey,
+          taskName: result.taskName ?? taskKey.split("/").at(-1),
           resultUrl: `/api/results/files/${timestamp}/${model}/${fileName}`,
-          taskUrl: `/api/tasks/files/${taskId}.json`,
+          taskUrl: `/api/tasks/files/${taskKey}.json`,
           summary: readSummary(fullPath),
         });
       }

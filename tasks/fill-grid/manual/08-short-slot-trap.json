@@ -99,6 +99,7 @@
       "length": 3
     }
   ],
-  "taskId": "manual/08-short-slot-trap",
-  "taskName": "08. short-slot trap"
+  "taskId": 8,
+  "taskName": "08. short-slot trap",
+  "taskKey": "manual/08-short-slot-trap"
 }

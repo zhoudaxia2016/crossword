@@ -123,6 +123,7 @@
       "length": 3
     }
   ],
-  "taskId": "manual/06-dense-but-connected",
-  "taskName": "06. dense but connected"
+  "taskId": 6,
+  "taskName": "06. dense but connected",
+  "taskKey": "manual/06-dense-but-connected"
 }

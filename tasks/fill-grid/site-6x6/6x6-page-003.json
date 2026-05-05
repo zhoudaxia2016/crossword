@@ -158,6 +158,7 @@
       "length": 4
     }
   ],
-  "taskId": "site-6x6/6x6-page-003",
-  "taskName": "クロスワード 6×6(カイジヨ、カンユウ)_問題3"
+  "taskId": 18,
+  "taskName": "クロスワード 6×6(カイジヨ、カンユウ)_問題3",
+  "taskKey": "site-6x6/6x6-page-003"
 }

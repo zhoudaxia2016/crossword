@@ -153,6 +153,7 @@
       "length": 5
     }
   ],
-  "taskId": "manual/05-symmetric-islands",
-  "taskName": "05. symmetric islands"
+  "taskId": 5,
+  "taskName": "05. symmetric islands",
+  "taskKey": "manual/05-symmetric-islands"
 }

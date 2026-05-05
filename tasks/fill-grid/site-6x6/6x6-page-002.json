@@ -146,6 +146,7 @@
       "length": 2
     }
   ],
-  "taskId": "site-6x6/6x6-page-002",
-  "taskName": "クロスワード 6×6(ハンノウ、サキガケ)_問題2"
+  "taskId": 17,
+  "taskName": "クロスワード 6×6(ハンノウ、サキガケ)_問題2",
+  "taskKey": "site-6x6/6x6-page-002"
 }

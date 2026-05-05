@@ -117,6 +117,7 @@
       "length": 7
     }
   ],
-  "taskId": "manual/13-spine-corridors",
-  "taskName": "13. spine corridors"
+  "taskId": 13,
+  "taskName": "13. spine corridors",
+  "taskKey": "manual/13-spine-corridors"
 }

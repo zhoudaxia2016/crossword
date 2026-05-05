@@ -153,6 +153,7 @@
       "length": 6
     }
   ],
-  "taskId": "manual/09-balanced-classic-ish",
-  "taskName": "09. balanced classic-ish"
+  "taskId": 9,
+  "taskName": "09. balanced classic-ish",
+  "taskKey": "manual/09-balanced-classic-ish"
 }

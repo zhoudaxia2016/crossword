@@ -22,7 +22,8 @@ export interface Puzzle {
 }
 
 export interface TaskFile {
-  taskId: string;
+  taskId: number;
+  taskKey: string;
   taskName: string;
   size: number;
   grid: string[][];
@@ -48,7 +49,8 @@ export interface Summary {
 }
 
 export interface ResultFile {
-  taskId: string;
+  taskId: number;
+  taskKey: string;
   taskName?: string;
   puzzles: Puzzle[];
   summary?: Summary;
@@ -65,7 +67,8 @@ export interface ResultRecord {
   timestamp: string;
   model: string;
   fileName: string;
-  taskId: string;
+  taskId: number;
+  taskKey: string;
   taskName: string;
   resultUrl: string;
   taskUrl: string;

@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "./components/ui/button";
 import { groupResults, loadManifest, loadResult } from "./data";
 import {
@@ -19,8 +19,6 @@ import type {
   PlacedEntry,
   ResultRecord,
 } from "./types";
-import AnswerPage from "./pages/AnswerPage";
-import BenchmarkPage from "./pages/BenchmarkPage";
 
 type CellStore = Record<string, Record<number, Record<string, string>>>;
 
@@ -130,16 +128,42 @@ interface TopBarProps {
   records: ResultRecord[];
   run: string;
   model: string;
-  taskId?: string;
+  taskId?: number;
   onSelectRun: (run: string) => void;
   onSelectModel: (model: string) => void;
-  onSelectTask?: (id: string) => void;
+  onSelectTask?: (id: number) => void;
   showTask: boolean;
   puzzles?: { entries: PlacedEntry[] }[];
   puzzleIndex?: number;
   onSelectPuzzle?: (index: number) => void;
   onReset?: () => void;
   onReveal?: () => void;
+}
+
+export interface AppRouteContext {
+  records: ResultRecord[];
+  run: string;
+  model: string;
+  selectedRecord?: ResultRecord;
+  selectedData: LoadedResult | null;
+  selectedPuzzleIndex: number;
+  numberedSlots: SlotWithNumber[];
+  selectedSlot?: SlotWithNumber;
+  hoveredSlot?: SlotWithNumber;
+  selectedEntry?: PlacedEntry;
+  currentSlotText: string;
+  selectedSolved: boolean;
+  boardState: {
+    cells: ReturnType<typeof buildBoardState>["cells"];
+    correctCellCount: number;
+    playableCellCount: number;
+    percent: number;
+  } | null;
+  error: string;
+  openTask: (taskId: number) => void;
+  selectSlot: (slot: SlotWithNumber | undefined) => void;
+  setHoveredSlotKey: (key: string) => void;
+  confirmDraft: (draft: string) => void;
 }
 
 function TopBar({
@@ -196,12 +220,12 @@ function TopBar({
             <DropdownMenu
               label="Task"
               items={currentModelTasks.map((t) => ({
-                key: t.taskId,
+                key: String(t.taskId),
                 label: t.taskName,
                 meta: `F ${formatScore(t.summary?.finalScore)}`,
               }))}
-              selectedKey={taskId ?? ""}
-              onSelect={onSelectTask ?? (() => {})}
+              selectedKey={taskId !== undefined ? String(taskId) : ""}
+              onSelect={(key) => onSelectTask?.(Number(key))}
             />
             <div className="top-bar__actions">
               <div className="puzzle-tabs" style={{ margin: 0 }}>
@@ -241,10 +265,11 @@ export default function App() {
   const [cellAnswers, setCellAnswers] = useState<CellStore>({});
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { run: runParam, mode: modeParam, model: modelParam } = useParams();
+  const { run: runParam, model: modelParam } = useParams();
 
-  const mode = modeParam === "benchmark" ? "benchmark" : "answer";
+  const mode = location.pathname.endsWith("/benchmark") ? "benchmark" : "answer";
 
   useEffect(() => {
     loadManifest()
@@ -279,7 +304,8 @@ export default function App() {
   const taskParam = searchParams.get("task") ?? "";
   const selectedRecord = useMemo(() => {
     if (taskParam) {
-      const found = recordsForRunModel.find((r) => r.taskId === taskParam);
+      const parsedTaskId = Number(taskParam);
+      const found = recordsForRunModel.find((r) => r.taskId === parsedTaskId);
       if (found) return found;
     }
     return recordsForRunModel[0];
@@ -288,29 +314,29 @@ export default function App() {
   function handleModeChange(newMode: "answer" | "benchmark") {
     const task = searchParams.get("task");
     const qs = task ? `?task=${task}` : "";
-    navigate(`/runs/${run}/${newMode}/${model}${qs}`);
+    navigate(`/runs/${run}/${model}/${newMode}${qs}`);
   }
 
   function handleSelectRun(newRun: string) {
     const newModels = [...new Set(records.filter((r) => r.timestamp === newRun).map((r) => r.model))];
     const firstModel = newModels[0] ?? "";
-    navigate(`/runs/${newRun}/${mode}/${firstModel}`, { replace: true });
+    navigate(`/runs/${newRun}/${firstModel}/${mode}`, { replace: true });
   }
 
   function handleSelectModel(newModel: string) {
     const task = searchParams.get("task");
     const qs = task ? `?task=${task}` : "";
-    navigate(`/runs/${run}/${mode}/${newModel}${qs}`);
+    navigate(`/runs/${run}/${newModel}/${mode}${qs}`);
   }
 
-  function handleSelectTask(id: string) {
+  function handleSelectTask(id: number) {
     const next = new URLSearchParams(searchParams);
-    next.set("task", id);
+    next.set("task", String(id));
     setSearchParams(next, { replace: true });
   }
 
-  function openTask(taskId: string) {
-    navigate(`/runs/${run}/answer/${model}?task=${taskId}`);
+  function openTask(taskId: number) {
+    navigate(`/runs/${run}/${model}/answer?task=${taskId}`);
   }
 
   // Sync URL when derived values don't match path params
@@ -318,7 +344,7 @@ export default function App() {
     if (records.length === 0) return;
     const task = searchParams.get("task");
     const qs = task ? `?task=${task}` : "";
-    const target = `/runs/${run}/${mode}/${model}${qs}`;
+    const target = `/runs/${run}/${model}/${mode}${qs}`;
     const current = window.location.pathname + (task ? `?task=${task}` : "");
     if (current !== target) {
       navigate(target, { replace: true });
@@ -438,31 +464,26 @@ export default function App() {
     setSelectedSlotKey(slotKey(slot.direction, slot.number));
   }
 
-  if (mode === "benchmark") {
-    return (
-      <div className="app-shell--review">
-        <ModeNav mode={mode} onModeChange={handleModeChange} />
-        <TopBar
-          records={records}
-          run={run}
-          model={model}
-          onSelectRun={handleSelectRun}
-          onSelectModel={handleSelectModel}
-          showTask={false}
-        />
-        <div className="content-center">
-          <main className="main-panel main-panel--review">
-            <BenchmarkPage
-              records={records}
-              run={run}
-              model={model}
-              onOpenTask={openTask}
-            />
-          </main>
-        </div>
-      </div>
-    );
-  }
+  const outletContext: AppRouteContext = {
+    records,
+    run,
+    model,
+    selectedRecord,
+    selectedData,
+    selectedPuzzleIndex: puzzleIndex,
+    numberedSlots,
+    selectedSlot,
+    hoveredSlot,
+    selectedEntry,
+    currentSlotText,
+    selectedSolved,
+    boardState,
+    error,
+    openTask,
+    selectSlot,
+    setHoveredSlotKey,
+    confirmDraft,
+  };
 
   return (
     <div className="app-shell--review">
@@ -471,7 +492,7 @@ export default function App() {
         records={records}
         run={run}
         model={model}
-        taskId={selectedRecord?.taskId ?? ""}
+        taskId={selectedRecord?.taskId}
         onSelectRun={handleSelectRun}
         onSelectModel={handleSelectModel}
         onSelectTask={handleSelectTask}
@@ -485,28 +506,9 @@ export default function App() {
 
       <div className="content-center">
         <main className="main-panel main-panel--review">
-        {selectedRecord && selectedData && selectedPuzzle && boardState ? (
-          <AnswerPage
-            selectedRecord={selectedRecord}
-            selectedData={selectedData}
-            boardState={boardState}
-            numberedSlots={numberedSlots}
-            selectedSlot={selectedSlot}
-            hoveredSlot={hoveredSlot}
-            selectedEntry={selectedEntry}
-            currentSlotText={currentSlotText}
-            selectedSolved={selectedSolved}
-            puzzleIndex={puzzleIndex}
-            error={error}
-            onSelectSlot={selectSlot}
-            onSetHoveredSlotKey={setHoveredSlotKey}
-            onConfirmDraft={confirmDraft}
-          />
-        ) : (
-          <div className="empty-state">{error || "No result selected."}</div>
-        )}
-      </main>
-    </div>
+          <Outlet context={outletContext} />
+        </main>
+      </div>
     </div>
   );
 }

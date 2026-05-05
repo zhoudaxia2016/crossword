@@ -153,6 +153,7 @@
       "length": 5
     }
   ],
-  "taskId": "manual/12-ring-window",
-  "taskName": "12. ring window"
+  "taskId": 12,
+  "taskName": "12. ring window",
+  "taskKey": "manual/12-ring-window"
 }

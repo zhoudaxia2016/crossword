@@ -51,11 +51,11 @@ function summarize(result) {
 
 function printResult(resultFile) {
   const result = loadJson(resultFile);
-  const taskFile = join(TASKS_ROOT, `${result.taskId}.json`);
+  const taskFile = join(TASKS_ROOT, `${result.taskKey}.json`);
   const task = loadJson(taskFile);
   const summary = summarize(result);
   const puzzles = result.puzzles ?? [];
-  const title = result.taskName ?? task.taskName ?? result.taskId ?? resultFile;
+  const title = result.taskName ?? task.taskName ?? result.taskKey ?? resultFile;
 
   console.log(`\n=== ${title} ===`);
   console.log(

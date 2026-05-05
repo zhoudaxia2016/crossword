@@ -126,6 +126,7 @@
       "length": 4
     }
   ],
-  "taskId": "manual/15-compact-balanced-6x6",
-  "taskName": "15. compact balanced 6x6"
+  "taskId": 15,
+  "taskName": "15. compact balanced 6x6",
+  "taskKey": "manual/15-compact-balanced-6x6"
 }

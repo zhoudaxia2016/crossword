@@ -159,6 +159,7 @@
       "length": 7
     }
   ],
-  "taskId": "manual/10-over-open-with-few-blocks",
-  "taskName": "10. over-open with few blocks"
+  "taskId": 10,
+  "taskName": "10. over-open with few blocks",
+  "taskKey": "manual/10-over-open-with-few-blocks"
 }

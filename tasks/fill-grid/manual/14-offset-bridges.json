@@ -159,6 +159,7 @@
       "length": 5
     }
   ],
-  "taskId": "manual/14-offset-bridges",
-  "taskName": "14. offset bridges"
+  "taskId": 14,
+  "taskName": "14. offset bridges",
+  "taskKey": "manual/14-offset-bridges"
 }

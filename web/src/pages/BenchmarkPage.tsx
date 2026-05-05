@@ -150,7 +150,7 @@ interface BenchmarkPageProps {
   records: ResultRecord[];
   run: string;
   model: string;
-  onOpenTask: (taskId: string) => void;
+  onOpenTask: (taskId: number) => void;
 }
 
 export default function BenchmarkPage({

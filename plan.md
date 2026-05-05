@@ -47,6 +47,7 @@ benchmark 数据分成两层：
 `tasks` 文件至少包含：
 
 - `taskId`
+- `taskKey`
 - `taskName`
 - `size`
 - `grid`
@@ -55,6 +56,7 @@ benchmark 数据分成两层：
 `results` 文件只保存：
 
 - `taskId`
+- `taskKey`
 - `taskName`
 - `puzzles`
 - `summary`
@@ -62,7 +64,9 @@ benchmark 数据分成两层：
 也就是说：
 
 - 不在每个 result 文件里重复保存 `grid`、`slots`、词库和约束
-- 前端或分析脚本如需显示题面，应通过 `taskId` 去读取对应 task 文件
+- `taskId` 是数值型稳定主键，供 benchmark 和前端路由使用
+- `taskKey` 是字符串路径键，供 task/result 文件定位与分组展示使用
+- 前端或分析脚本如需显示题面，应通过 `taskKey` 去读取对应 task 文件
 
 ## Benchmark 调试
 
@@ -83,7 +87,7 @@ node scripts/benchmark-fill-grid.js --model gpt-5.4 --tasks-dir tasks/fill-grid/
 建议调试顺序：
 
 1. 先只跑一个模型
-2. 先用较小的 `grids` 目录定位合法性问题
+2. 先用较小的 `tasks` 目录定位合法性问题
 3. 先看 `validPuzzleRate` 和 `firstIssue`
 4. 再看 `preferenceFit` 与 `crossPuzzleVariety`
 

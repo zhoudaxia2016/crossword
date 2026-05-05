@@ -165,6 +165,7 @@
       "length": 3
     }
   ],
-  "taskId": "manual/11-centered-classic",
-  "taskName": "11. centered classic"
+  "taskId": 11,
+  "taskName": "11. centered classic",
+  "taskKey": "manual/11-centered-classic"
 }

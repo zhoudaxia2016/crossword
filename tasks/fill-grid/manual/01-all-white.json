@@ -153,6 +153,7 @@
       "length": 7
     }
   ],
-  "taskId": "manual/01-all-white",
-  "taskName": "01. all-white"
+  "taskId": 1,
+  "taskName": "01. all-white",
+  "taskKey": "manual/01-all-white"
 }

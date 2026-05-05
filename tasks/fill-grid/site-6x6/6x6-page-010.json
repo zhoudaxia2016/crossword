@@ -146,6 +146,7 @@
       "length": 3
     }
   ],
-  "taskId": "site-6x6/6x6-page-010",
-  "taskName": "クロスワード 6×6(コサメ、ハヤトチリ)_問題10"
+  "taskId": 25,
+  "taskName": "クロスワード 6×6(コサメ、ハヤトチリ)_問題10",
+  "taskKey": "site-6x6/6x6-page-010"
 }

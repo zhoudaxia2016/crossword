@@ -146,6 +146,7 @@
       "length": 2
     }
   ],
-  "taskId": "site-6x6/6x6-page-001",
-  "taskName": "クロスワード 6×6(ハート、コウシ)_問題1"
+  "taskId": 16,
+  "taskName": "クロスワード 6×6(ハート、コウシ)_問題1",
+  "taskKey": "site-6x6/6x6-page-001"
 }

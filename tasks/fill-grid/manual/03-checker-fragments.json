@@ -68,6 +68,7 @@
     ]
   ],
   "slots": [],
-  "taskId": "manual/03-checker-fragments",
-  "taskName": "03. checker fragments"
+  "taskId": 3,
+  "taskName": "03. checker fragments",
+  "taskKey": "manual/03-checker-fragments"
 }

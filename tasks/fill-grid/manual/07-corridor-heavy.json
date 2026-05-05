@@ -111,6 +111,7 @@
       "length": 3
     }
   ],
-  "taskId": "manual/07-corridor-heavy",
-  "taskName": "07. corridor-heavy"
+  "taskId": 7,
+  "taskName": "07. corridor-heavy",
+  "taskKey": "manual/07-corridor-heavy"
 }

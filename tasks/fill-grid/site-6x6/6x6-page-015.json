@@ -158,6 +158,7 @@
       "length": 4
     }
   ],
-  "taskId": "site-6x6/6x6-page-015",
-  "taskName": "クロスワード 6×6(ノミ、テサゲ)_問題15"
+  "taskId": 30,
+  "taskName": "クロスワード 6×6(ノミ、テサゲ)_問題15",
+  "taskKey": "site-6x6/6x6-page-015"
 }
