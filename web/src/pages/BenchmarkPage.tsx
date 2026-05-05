@@ -179,24 +179,26 @@ export default function BenchmarkPage({
     () =>
       grouped.map((g) => ({
         timestamp: g.timestamp,
-        models: g.models.map((m) => {
-          const recordsForModel = m.templates;
-          const avg = (fn: (record: ResultRecord) => number) =>
-            recordsForModel.length > 0
-              ? round(recordsForModel.reduce((a, b) => a + fn(b), 0) / recordsForModel.length)
-              : 0;
-          return {
-            name: m.model,
-            avgFinalScore: avg((x) => x.summary?.finalScore ?? 0),
-            avgOverallScore: avg((x) => x.summary?.overallScore ?? 0),
-            avgVpr: avg((x) => x.summary?.validPuzzleRate ?? 0),
-            avgPf: avg((x) => x.summary?.preferenceFit ?? 0),
-            avgCpv: avg((x) => x.summary?.crossPuzzleVariety ?? 0),
-            avgTime: avg((x) => x.summary?.elapsedMs ?? 0),
-            totalTime: recordsForModel.reduce((a, b) => a + (b.summary?.elapsedMs ?? 0), 0),
-            templates: recordsForModel,
-          };
-        }),
+        models: g.models
+          .map((m) => {
+            const recordsForModel = m.templates;
+            const avg = (fn: (record: ResultRecord) => number) =>
+              recordsForModel.length > 0
+                ? round(recordsForModel.reduce((a, b) => a + fn(b), 0) / recordsForModel.length)
+                : 0;
+            return {
+              name: m.model,
+              avgFinalScore: avg((x) => x.summary?.finalScore ?? 0),
+              avgOverallScore: avg((x) => x.summary?.overallScore ?? 0),
+              avgVpr: avg((x) => x.summary?.validPuzzleRate ?? 0),
+              avgPf: avg((x) => x.summary?.preferenceFit ?? 0),
+              avgCpv: avg((x) => x.summary?.crossPuzzleVariety ?? 0),
+              avgTime: avg((x) => x.summary?.elapsedMs ?? 0),
+              totalTime: recordsForModel.reduce((a, b) => a + (b.summary?.elapsedMs ?? 0), 0),
+              templates: recordsForModel,
+            };
+          })
+          .sort((a, b) => b.avgFinalScore - a.avgFinalScore),
       })),
     [grouped],
   );
