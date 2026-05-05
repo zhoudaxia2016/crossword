@@ -506,7 +506,11 @@ input {
 
 /* ---- Answer Panel ---- */
 .clue-panel {
-  display: block;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  max-height: calc(100vh - 220px);
 }
 
 .answer-panel__body {
@@ -524,6 +528,63 @@ input {
   font-size: 15px;
   color: var(--secondary);
   min-height: 22px;
+}
+
+.clue-list-card {
+  min-height: 0;
+}
+
+.clue-list-card__content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.clue-tabs {
+  margin: 0;
+}
+
+.clue-list {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.clue-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--secondary);
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.clue-item:hover {
+  background: var(--surface-hover);
+}
+
+.clue-item.is-selected {
+  background: color-mix(in srgb, var(--selected-cell) 55%, white);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  color: var(--text);
+}
+
+.clue-item__number {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.clue-item__text {
+  line-height: 1.5;
 }
 
 /* ---- Empty State ---- */

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -105,9 +105,48 @@ export default function AnswerPage({
   onSetHoveredSlotKey,
   onConfirmDraft,
 }: AnswerPageProps) {
+  const [activeTab, setActiveTab] = useState<"across" | "down">("across");
+
   if (!selectedRecord || !selectedData || !boardState) {
     return <div className="empty-state">{error || "No result selected."}</div>;
   }
+
+  const selectedPuzzle = selectedData.result.puzzles?.[puzzleIndex];
+  const entryMap = useMemo(() => {
+    const map = new Map<string, PlacedEntry>();
+    for (const entry of selectedPuzzle?.entries ?? []) {
+      map.set(slotKey(entry.direction, entry.number), entry);
+    }
+    return map;
+  }, [selectedPuzzle]);
+
+  const acrossItems = useMemo(
+    () =>
+      numberedSlots
+        .filter((slot) => slot.direction === "across")
+        .map((slot) => ({
+          slot,
+          entry: entryMap.get(slotKey(slot.direction, slot.number)),
+        })),
+    [numberedSlots, entryMap],
+  );
+
+  const downItems = useMemo(
+    () =>
+      numberedSlots
+        .filter((slot) => slot.direction === "down")
+        .map((slot) => ({
+          slot,
+          entry: entryMap.get(slotKey(slot.direction, slot.number)),
+        })),
+    [numberedSlots, entryMap],
+  );
+
+  useEffect(() => {
+    if (selectedSlot) {
+      setActiveTab(selectedSlot.direction);
+    }
+  }, [selectedSlot]);
 
   return (
     <>
@@ -187,6 +226,49 @@ export default function AnswerPage({
             isSolved={selectedSolved}
             onConfirm={onConfirmDraft}
           />
+          <Card className="clue-list-card">
+            <CardContent className="clue-list-card__content">
+              <div className="puzzle-tabs clue-tabs">
+                <button
+                  type="button"
+                  className={cn("puzzle-tab", activeTab === "across" && "is-active")}
+                  onClick={() => setActiveTab("across")}
+                >
+                  Across
+                </button>
+                <button
+                  type="button"
+                  className={cn("puzzle-tab", activeTab === "down" && "is-active")}
+                  onClick={() => setActiveTab("down")}
+                >
+                  Down
+                </button>
+              </div>
+
+              <div className="clue-list">
+                {(activeTab === "across" ? acrossItems : downItems).map(({ slot, entry }) => {
+                  const isSelected =
+                    selectedSlot &&
+                    slot.number === selectedSlot.number &&
+                    slot.direction === selectedSlot.direction;
+
+                  return (
+                    <button
+                      key={slotKey(slot.direction, slot.number)}
+                      type="button"
+                      className={cn("clue-item", isSelected && "is-selected")}
+                      onClick={() => onSelectSlot(slot)}
+                      onMouseEnter={() => onSetHoveredSlotKey(slotKey(slot.direction, slot.number))}
+                      onMouseLeave={() => onSetHoveredSlotKey("")}
+                    >
+                      <span className="clue-item__number">{slot.number}</span>
+                      <span className="clue-item__text">{entry?.clue ?? ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </>
