@@ -72,5 +72,7 @@ export interface ResultRecord {
   taskName: string;
   resultUrl: string;
   taskUrl: string;
+  playable: boolean;
+  invalidReason?: string;
   summary?: Summary;
 }

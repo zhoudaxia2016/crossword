@@ -297,6 +297,7 @@ export default function BenchmarkPage({
                       <span className="ar">▶</span>
                       <span className="tn">{task.taskName}</span>
                       <span className="ss">
+                        {!task.playable ? <span style={{ color: "var(--danger)" }}>invalid</span> : null}
                         <span>Score: {s.overallScore}</span>
                         <span>{s.elapsedMs ?? "-"}ms</span>
                       </span>
@@ -340,7 +341,12 @@ export default function BenchmarkPage({
                               ))}
                             </div>
                           )}
-                          {puzzle && (
+                          {!task.playable ? (
+                            <div style={{ color: "var(--danger)", fontWeight: 600, marginTop: 8 }}>
+                              invalid
+                            </div>
+                          ) : null}
+                          {task.playable && puzzle && Array.isArray(puzzle.entries) && puzzle.entries.length > 0 && (
                             <div className="ge">
                               <div style={{ display: "flex", justifyContent: "center" }}>
                                 <PuzzleGrid
@@ -357,14 +363,20 @@ export default function BenchmarkPage({
                         </div>
                       );
                     })()}
-                    <button
-                        className="summary-task"
-                        onClick={() => onOpenTask(task.taskId)}
-                        type="button"
-                        style={{ marginTop: 8, display: "inline-block", width: "auto" }}
-                      >
-                        去答题 →
-                      </button>
+                    {task.playable ? (
+                      <button
+                          className="summary-task"
+                          onClick={() => onOpenTask(task.taskId)}
+                          type="button"
+                          style={{ marginTop: 8, display: "inline-block", width: "auto" }}
+                        >
+                          去答题 →
+                        </button>
+                    ) : (
+                      <div style={{ marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
+                        {task.invalidReason ?? "invalid"}
+                      </div>
+                    )}
                     </div>
                   </div>
                 );

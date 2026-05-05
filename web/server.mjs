@@ -71,6 +71,11 @@ function buildManifest() {
         const result = JSON.parse(fs.readFileSync(fullPath, "utf8"));
         const taskKey = result.taskKey ?? fileName.replace(/\.json$/u, "");
         const taskId = result.taskId;
+        const puzzles = Array.isArray(result.puzzles) ? result.puzzles : [];
+        const playable = puzzles.some(
+          (puzzle) => puzzle && Array.isArray(puzzle.entries) && puzzle.entries.length > 0,
+        );
+        const invalidReason = playable ? undefined : result.summary?.firstIssue || "invalid";
         records.push({
           id: `${timestamp}/${model}/${fileName}`,
           timestamp,
@@ -81,6 +86,8 @@ function buildManifest() {
           taskName: result.taskName ?? taskKey.split("/").at(-1),
           resultUrl: `/api/results/files/${timestamp}/${model}/${fileName}`,
           taskUrl: `/api/tasks/files/${taskKey}.json`,
+          playable,
+          invalidReason,
           summary: readSummary(fullPath),
         });
       }

@@ -196,8 +196,11 @@ function TopBar({
     [modelsInGroup],
   );
   const currentModelTasks = useMemo(
-    () => modelsInGroup.find((m) => m.model === model)?.tasks ?? [],
-    [modelsInGroup, model],
+    () => {
+      const tasks = modelsInGroup.find((m) => m.model === model)?.tasks ?? [];
+      return showTask ? tasks.filter((task) => task.playable) : tasks;
+    },
+    [modelsInGroup, model, showTask],
   );
 
   return (
@@ -300,16 +303,21 @@ export default function App() {
     () => records.filter((r) => r.timestamp === run && r.model === model),
     [records, run, model],
   );
+  const playableRecordsForRunModel = useMemo(
+    () => recordsForRunModel.filter((record) => record.playable),
+    [recordsForRunModel],
+  );
 
   const taskParam = searchParams.get("task") ?? "";
   const selectedRecord = useMemo(() => {
+    const candidateRecords = mode === "answer" ? playableRecordsForRunModel : recordsForRunModel;
     if (taskParam) {
       const parsedTaskId = Number(taskParam);
-      const found = recordsForRunModel.find((r) => r.taskId === parsedTaskId);
+      const found = candidateRecords.find((r) => r.taskId === parsedTaskId);
       if (found) return found;
     }
-    return recordsForRunModel[0];
-  }, [recordsForRunModel, taskParam]);
+    return candidateRecords[0];
+  }, [mode, playableRecordsForRunModel, recordsForRunModel, taskParam]);
 
   function handleModeChange(newMode: "answer" | "benchmark") {
     const task = searchParams.get("task");
@@ -342,14 +350,19 @@ export default function App() {
   // Sync URL when derived values don't match path params
   useEffect(() => {
     if (records.length === 0) return;
-    const task = searchParams.get("task");
+    const task =
+      mode === "answer"
+        ? selectedRecord?.taskId !== undefined
+          ? String(selectedRecord.taskId)
+          : ""
+        : searchParams.get("task") ?? "";
     const qs = task ? `?task=${task}` : "";
     const target = `/runs/${run}/${model}/${mode}${qs}`;
     const current = window.location.pathname + (task ? `?task=${task}` : "");
     if (current !== target) {
       navigate(target, { replace: true });
     }
-  }, [run, mode, model, searchParams, navigate, records.length]);
+  }, [run, mode, model, searchParams, navigate, records.length, selectedRecord?.taskId]);
 
   useEffect(() => {
     if (!selectedRecord) {
