@@ -4,14 +4,14 @@ import type { AppRouteContext } from "../App";
 import BenchmarkPage from "./BenchmarkPage";
 
 export default function BenchmarkRoute() {
-  const { records, run, model, openTask } = useOutletContext<AppRouteContext>();
+  const { records, run, model, openTemplate } = useOutletContext<AppRouteContext>();
 
   return (
     <BenchmarkPage
       records={records}
       run={run}
       model={model}
-      onOpenTask={openTask}
+      onOpenTemplate={openTemplate}
     />
   );
 }

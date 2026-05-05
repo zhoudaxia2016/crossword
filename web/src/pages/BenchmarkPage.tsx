@@ -150,14 +150,14 @@ interface BenchmarkPageProps {
   records: ResultRecord[];
   run: string;
   model: string;
-  onOpenTask: (taskId: number) => void;
+  onOpenTemplate: (templateId: number) => void;
 }
 
 export default function BenchmarkPage({
   records,
   run,
   model,
-  onOpenTask,
+  onOpenTemplate,
 }: BenchmarkPageProps) {
   const grouped = useMemo(() => groupResults(records), [records]);
 
@@ -180,9 +180,11 @@ export default function BenchmarkPage({
       grouped.map((g) => ({
         timestamp: g.timestamp,
         models: g.models.map((m) => {
-          const r = m.tasks;
-          const avg = (fn: (t: ResultRecord) => number) =>
-            r.length > 0 ? round(r.reduce((a, b) => a + fn(b), 0) / r.length) : 0;
+          const recordsForModel = m.templates;
+          const avg = (fn: (record: ResultRecord) => number) =>
+            recordsForModel.length > 0
+              ? round(recordsForModel.reduce((a, b) => a + fn(b), 0) / recordsForModel.length)
+              : 0;
           return {
             name: m.model,
             avgFinalScore: avg((x) => x.summary?.finalScore ?? 0),
@@ -191,8 +193,8 @@ export default function BenchmarkPage({
             avgPf: avg((x) => x.summary?.preferenceFit ?? 0),
             avgCpv: avg((x) => x.summary?.crossPuzzleVariety ?? 0),
             avgTime: avg((x) => x.summary?.elapsedMs ?? 0),
-            totalTime: r.reduce((a, b) => a + (b.summary?.elapsedMs ?? 0), 0),
-            tasks: m.tasks,
+            totalTime: recordsForModel.reduce((a, b) => a + (b.summary?.elapsedMs ?? 0), 0),
+            templates: recordsForModel,
           };
         }),
       })),
@@ -212,7 +214,7 @@ export default function BenchmarkPage({
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Crossword Benchmark Report</h1>
       </div>
       <div className="subtitle">
-        {records.length} tasks · {selectedRun ? `${selectedRun.models.length} models` : ""}
+        {records.length} templates · {selectedRun ? `${selectedRun.models.length} models` : ""}
       </div>
 
       {selectedRun && (
@@ -281,23 +283,23 @@ export default function BenchmarkPage({
                 </div>
               </div>
 
-              {mdl.tasks.map((task) => {
-                const s = task.summary;
+              {mdl.templates.map((template) => {
+                const s = template.summary;
                 if (!s) return null;
 
                 return (
-                  <div key={task.id} className="accordion" style={{ marginTop: 4 }}>
+                  <div key={template.id} className="accordion" style={{ marginTop: 4 }}>
                     <div
                       className="accordion-h"
                       onClick={(e) => {
                         e.currentTarget.parentElement!.classList.toggle("open");
-                        loadTaskResult(task);
+                        loadTaskResult(template);
                       }}
                     >
                       <span className="ar">▶</span>
-                      <span className="tn">{task.taskName}</span>
+                      <span className="tn">{template.templateName}</span>
                       <span className="ss">
-                        {!task.playable ? <span style={{ color: "var(--danger)" }}>invalid</span> : null}
+                        {!template.playable ? <span style={{ color: "var(--danger)" }}>invalid</span> : null}
                         <span>Score: {s.overallScore}</span>
                         <span>{s.elapsedMs ?? "-"}ms</span>
                       </span>
@@ -317,13 +319,13 @@ export default function BenchmarkPage({
                         <span>elapsed: <strong>{s.elapsedMs}ms</strong></span>
                         <span>finalScore: <strong>{s.finalScore}</strong></span>
                       </div>
-                      {loadedResults[task.id] === "loading" && (
+                      {loadedResults[template.id] === "loading" && (
                       <div style={{ color: "var(--muted)", padding: "8px 0" }}>加载中...</div>
                     )}
-                    {loadedResults[task.id] && loadedResults[task.id] !== "loading" && (() => {
-                      const loaded = loadedResults[task.id] as LoadedResult;
+                    {loadedResults[template.id] && loadedResults[template.id] !== "loading" && (() => {
+                      const loaded = loadedResults[template.id] as LoadedResult;
                       const puzzles = loaded.result.puzzles;
-                      const idx = activePuzzleMap[task.id] ?? 0;
+                      const idx = activePuzzleMap[template.id] ?? 0;
                       const puzzle = puzzles[idx];
                       return (
                         <div style={{ marginTop: 12 }}>
@@ -333,7 +335,7 @@ export default function BenchmarkPage({
                                 <button
                                   key={pi}
                                   className={cn("puzzle-tab", pi === idx && "is-active")}
-                                  onClick={() => setActivePuzzleMap((prev) => ({ ...prev, [task.id]: pi }))}
+                                  onClick={() => setActivePuzzleMap((prev) => ({ ...prev, [template.id]: pi }))}
                                   type="button"
                                 >
                                   {pi + 1}
@@ -341,17 +343,17 @@ export default function BenchmarkPage({
                               ))}
                             </div>
                           )}
-                          {!task.playable ? (
+                          {!template.playable ? (
                             <div style={{ color: "var(--danger)", fontWeight: 600, marginTop: 8 }}>
                               invalid
                             </div>
                           ) : null}
-                          {task.playable && puzzle && Array.isArray(puzzle.entries) && puzzle.entries.length > 0 && (
+                          {template.playable && puzzle && Array.isArray(puzzle.entries) && puzzle.entries.length > 0 && (
                             <div className="ge">
                               <div style={{ display: "flex", justifyContent: "center" }}>
                                 <PuzzleGrid
-                                  grid={loaded.task.grid}
-                                  size={loaded.task.size ?? loaded.task.grid.length}
+                                  grid={loaded.template.grid}
+                                  size={loaded.template.size ?? loaded.template.grid.length}
                                   entries={puzzle.entries}
                                 />
                               </div>
@@ -363,10 +365,10 @@ export default function BenchmarkPage({
                         </div>
                       );
                     })()}
-                    {task.playable ? (
+                    {template.playable ? (
                       <button
                           className="summary-task"
-                          onClick={() => onOpenTask(task.taskId)}
+                          onClick={() => onOpenTemplate(template.templateId)}
                           type="button"
                           style={{ marginTop: 8, display: "inline-block", width: "auto" }}
                         >
@@ -374,7 +376,7 @@ export default function BenchmarkPage({
                         </button>
                     ) : (
                       <div style={{ marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
-                        {task.invalidReason ?? "invalid"}
+                        {template.invalidReason ?? "invalid"}
                       </div>
                     )}
                     </div>

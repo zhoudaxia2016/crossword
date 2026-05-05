@@ -7,7 +7,7 @@ import { createServer as createViteServer } from "vite";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const distRoot = path.join(currentDir, "dist");
 const resultsRoot = path.resolve(currentDir, "../results");
-const tasksRoot = path.resolve(currentDir, "../tasks/fill-grid");
+const templatesRoot = path.resolve(currentDir, "../templates/fill-grid");
 const port = Number(process.env.PORT || 4173);
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -69,8 +69,8 @@ function buildManifest() {
       for (const fullPath of listJsonFilesRecursive(modelDir)) {
         const fileName = path.relative(modelDir, fullPath).replace(/\\/g, "/");
         const result = JSON.parse(fs.readFileSync(fullPath, "utf8"));
-        const taskKey = result.taskKey ?? fileName.replace(/\.json$/u, "");
-        const taskId = result.taskId;
+        const templateKey = result.templateKey ?? fileName.replace(/\.json$/u, "");
+        const templateId = result.templateId;
         const puzzles = Array.isArray(result.puzzles) ? result.puzzles : [];
         const playable = puzzles.some(
           (puzzle) => puzzle && Array.isArray(puzzle.entries) && puzzle.entries.length > 0,
@@ -81,11 +81,11 @@ function buildManifest() {
           timestamp,
           model,
           fileName,
-          taskId,
-          taskKey,
-          taskName: result.taskName ?? taskKey.split("/").at(-1),
+          templateId,
+          templateKey,
+          templateName: result.templateName ?? templateKey.split("/").at(-1),
           resultUrl: `/api/results/files/${timestamp}/${model}/${fileName}`,
-          taskUrl: `/api/tasks/files/${taskKey}.json`,
+          templateUrl: `/api/templates/files/${templateKey}.json`,
           playable,
           invalidReason,
           summary: readSummary(fullPath),
@@ -135,10 +135,10 @@ function createRequestHandler(vite) {
       return;
     }
 
-    if (pathname.startsWith("/api/tasks/files/")) {
-      const relativePath = pathname.replace("/api/tasks/files/", "");
-      const filePath = path.join(tasksRoot, relativePath);
-      if (!filePath.startsWith(tasksRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    if (pathname.startsWith("/api/templates/files/")) {
+      const relativePath = pathname.replace("/api/templates/files/", "");
+      const filePath = path.join(templatesRoot, relativePath);
+      if (!filePath.startsWith(templatesRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
         sendText(res, 404, "Not found");
         return;
       }

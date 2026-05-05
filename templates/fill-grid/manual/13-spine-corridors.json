@@ -1,0 +1,123 @@
+{
+  "name": "13. spine corridors",
+  "note": "中轴很强，横向走廊多，目标是中低分但仍合法。",
+  "size": 7,
+  "grid": [
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      ".",
+      "#",
+      ".",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      ".",
+      ".",
+      ".",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      ".",
+      "#",
+      ".",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ]
+  ],
+  "slots": [
+    {
+      "direction": "across",
+      "row": 0,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 2,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 3,
+      "col": 2,
+      "length": 3
+    },
+    {
+      "direction": "across",
+      "row": 4,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 6,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 2,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 2,
+      "col": 3,
+      "length": 3
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 4,
+      "length": 7
+    }
+  ],
+  "templateId": 13,
+  "templateKey": "manual/13-spine-corridors",
+  "templateName": "13. spine corridors"
+}

@@ -8,7 +8,7 @@ import { normalizeKanaText } from "./kana.js";
 
 const MODELS_DIR = resolve("models");
 const RESULTS_DIR = resolve("results");
-const TASKS_ROOT = resolve("tasks/fill-grid");
+const TEMPLATES_ROOT = resolve("templates/fill-grid");
 const DEFAULT_LEXICON_XLSX = resolve("词汇表.xlsx");
 const DEFAULT_COUNT = 5;
 const RUN_ID = formatRunId(new Date());
@@ -156,9 +156,9 @@ function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function saveModelTaskResult(modelName, taskKey, payload) {
+function saveModelTaskResult(modelName, templateKey, payload) {
   const modelDir = join(RUN_RESULTS_DIR, modelName);
-  const outputFile = join(modelDir, `${taskKey}.json`);
+  const outputFile = join(modelDir, `${templateKey}.json`);
   mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return outputFile;
@@ -179,16 +179,16 @@ function computeTimeScores(allResults) {
         continue;
       }
 
-      const current = fastestByTask.get(task.taskKey);
+      const current = fastestByTask.get(task.templateKey);
       if (current === undefined || task.elapsedMs < current) {
-        fastestByTask.set(task.taskKey, task.elapsedMs);
+        fastestByTask.set(task.templateKey, task.elapsedMs);
       }
     }
   }
 
   for (const result of allResults) {
     for (const task of result.results) {
-      const fastestMs = fastestByTask.get(task.taskKey);
+      const fastestMs = fastestByTask.get(task.templateKey);
       const relativeTimeScore =
         !task.error && typeof task.elapsedMs === "number" && task.elapsedMs > 0 && typeof fastestMs === "number"
           ? Math.min(1, fastestMs / task.elapsedMs)
@@ -385,10 +385,10 @@ function loadLexiconFromXlsx(xlsxPath) {
     .filter(Boolean);
 }
 
-function loadGridTasks(gridsDir, cliOptions) {
-  const dir = resolve(gridsDir);
-  const isUnderTasksRoot = dir === TASKS_ROOT || dir.startsWith(`${TASKS_ROOT}/`);
-  const taskFiles = [];
+function loadTemplates(templatesDir, cliOptions) {
+  const dir = resolve(templatesDir);
+  const isUnderTemplatesRoot = dir === TEMPLATES_ROOT || dir.startsWith(`${TEMPLATES_ROOT}/`);
+  const templateFiles = [];
 
   function walk(currentDir) {
     for (const name of readdirSync(currentDir).sort()) {
@@ -397,36 +397,36 @@ function loadGridTasks(gridsDir, cliOptions) {
       if (stats.isDirectory()) {
         walk(fullPath);
       } else if (name.endsWith(".json")) {
-        taskFiles.push(fullPath);
+        templateFiles.push(fullPath);
       }
     }
   }
 
   walk(dir);
 
-  return taskFiles
+  return templateFiles
     .sort()
     .map((fullPath) => {
       const data = loadJson(fullPath);
       const size = cliOptions.size ?? data.size;
       const minEntryLength = cliOptions.minEntryLength ?? data.minEntryLength ?? 3;
       const maxEntryLength = cliOptions.maxEntryLength ?? data.maxEntryLength ?? size;
-      const taskId = data.taskId;
-      const taskKey =
-        data.taskKey
-        ?? (isUnderTasksRoot
-          ? relative(TASKS_ROOT, fullPath).replace(/\\/g, "/").replace(/\.json$/u, "")
+      const templateId = data.templateId;
+      const templateKey =
+        data.templateKey
+        ?? (isUnderTemplatesRoot
+          ? relative(TEMPLATES_ROOT, fullPath).replace(/\\/g, "/").replace(/\.json$/u, "")
           : relative(dir, fullPath).replace(/\\/g, "/").replace(/\.json$/u, ""));
-      const taskName = data.taskName ?? data.title ?? data.name ?? taskKey.split("/").at(-1);
+      const templateName = data.templateName ?? data.title ?? data.name ?? templateKey.split("/").at(-1);
 
-      if (!Number.isInteger(taskId) || taskId <= 0) {
-        throw new Error(`task file is missing numeric taskId: ${fullPath}`);
+      if (!Number.isInteger(templateId) || templateId <= 0) {
+        throw new Error(`template file is missing numeric templateId: ${fullPath}`);
       }
 
       return {
-        taskId,
-        taskKey,
-        taskName,
+        templateId,
+        templateKey,
+        templateName,
         input: {
           grid: data.grid ?? buildGridFromSlots(size, data.slots),
           slots: data.slots,
@@ -484,7 +484,7 @@ async function loadModel(entryFile) {
   };
 }
 
-async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
+async function benchmarkModel(model, modelName, templates, lexicon, cliOptions) {
   if (typeof model.fillGrid !== "function") {
     return {
       available: false,
@@ -496,12 +496,12 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
   }
 
   const results = [];
-  printModelProgress(modelName, 0, tasks.length);
+  printModelProgress(modelName, 0, templates.length);
 
-  for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 1) {
-    const task = tasks[taskIndex];
+  for (let templateIndex = 0; templateIndex < templates.length; templateIndex += 1) {
+    const template = templates[templateIndex];
     const input = {
-      ...task.input,
+      ...template.input,
       lexicon,
       wordPreferences: {
         preferredTags: cliOptions.tags,
@@ -520,10 +520,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
 
       if (!sameGrid || !sameSlots) {
         const firstIssue = !sameGrid ? "fillGrid changed grid" : "fillGrid changed slots";
-        const resultFile = saveModelTaskResult(modelName, task.taskKey, {
-          taskId: task.taskId,
-          taskKey: task.taskKey,
-          taskName: task.taskName,
+        const resultFile = saveModelTaskResult(modelName, template.templateKey, {
+          templateId: template.templateId,
+          templateKey: template.templateKey,
+          templateName: template.templateName,
           puzzles: Array.isArray(output?.puzzles) ? output.puzzles : [],
           summary: {
             overallScore: 0,
@@ -535,16 +535,16 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
           },
         });
         results.push({
-          task: task.taskName,
-          taskId: task.taskId,
-          taskKey: task.taskKey,
+          template: template.templateName,
+          templateId: template.templateId,
+          templateKey: template.templateKey,
           score: 0,
           validPuzzleRate: 0,
           elapsedMs,
           resultFile,
           error: firstIssue,
         });
-        printModelProgress(modelName, taskIndex + 1, tasks.length);
+        printModelProgress(modelName, templateIndex + 1, templates.length);
         continue;
       }
 
@@ -573,10 +573,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         firstIssue = "returned fewer puzzles than requested";
       }
 
-      const resultFile = saveModelTaskResult(modelName, task.taskKey, {
-        taskId: task.taskId,
-        taskKey: task.taskKey,
-        taskName: task.taskName,
+      const resultFile = saveModelTaskResult(modelName, template.templateKey, {
+        templateId: template.templateId,
+        templateKey: template.templateKey,
+        templateName: template.templateName,
         puzzles: output.puzzles ?? [],
         summary: {
           overallScore: score.overallScore,
@@ -589,9 +589,9 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
 
       results.push({
-        task: task.taskName,
-        taskId: task.taskId,
-        taskKey: task.taskKey,
+        template: template.templateName,
+        templateId: template.templateId,
+        templateKey: template.templateKey,
         score: score.overallScore,
         validPuzzleRate: score.breakdown.validPuzzleRate,
         preferenceFit: score.breakdown.preferenceFit,
@@ -604,10 +604,10 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const resultFile = saveModelTaskResult(modelName, task.taskKey, {
-        taskId: task.taskId,
-        taskKey: task.taskKey,
-        taskName: task.taskName,
+      const resultFile = saveModelTaskResult(modelName, template.templateKey, {
+        templateId: template.templateId,
+        templateKey: template.templateKey,
+        templateName: template.templateName,
         puzzles: [],
         error: message,
         summary: {
@@ -619,9 +619,9 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
         },
       });
       results.push({
-        task: task.taskName,
-        taskId: task.taskId,
-        taskKey: task.taskKey,
+        template: template.templateName,
+        templateId: template.templateId,
+        templateKey: template.templateKey,
         score: 0,
         validPuzzleRate: 0,
         elapsedMs: null,
@@ -630,7 +630,7 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
       });
     }
 
-    printModelProgress(modelName, taskIndex + 1, tasks.length);
+    printModelProgress(modelName, templateIndex + 1, templates.length);
   }
 
   return {
@@ -644,15 +644,15 @@ async function benchmarkModel(model, modelName, tasks, lexicon, cliOptions) {
 
 function printUsage() {
   console.log("usage:");
-  console.log("  node scripts/benchmark-fill-grid.js --tasks-dir <dir> [--lexicon-xlsx <file>]");
+  console.log("  node scripts/benchmark-fill-grid.js --templates-dir <dir> [--lexicon-xlsx <file>]");
   console.log("    [--size <n>] [--minEntryLength <n>] [--maxEntryLength <n>]");
   console.log("    [--levels <a,b,c>] [--pos <a,b,c>] [--tags <a,b,c>]");
   console.log("    [--model <name>]");
   console.log("    [--count <n>]");
   console.log("");
   console.log("examples:");
-  console.log("  node scripts/benchmark-fill-grid.js --tasks-dir tasks/fill-grid/site-6x6 --count 5");
-  console.log("  node scripts/benchmark-fill-grid.js --model gpt-5.4 --tasks-dir tasks/fill-grid/manual --minEntryLength 3 --count 5");
+  console.log("  node scripts/benchmark-fill-grid.js --templates-dir templates/fill-grid/site-6x6 --count 5");
+  console.log("  node scripts/benchmark-fill-grid.js --model gpt-5.4 --templates-dir templates/fill-grid/manual --minEntryLength 3 --count 5");
 }
 
 function printModelSummary(result) {
@@ -664,30 +664,30 @@ function printModelSummary(result) {
     ),
   );
 
-  const taskRows = result.results.map((task) => {
-    if (task.error) {
-      return [task.task, 0, 0, 0, 0, "-", "-", "-", "-", task.error];
+  const templateRows = result.results.map((template) => {
+    if (template.error) {
+      return [template.template, 0, 0, 0, 0, "-", "-", "-", "-", template.error];
     }
 
     return [
-      task.task,
-      task.finalScore,
-      task.score,
-      task.validPuzzleRate,
-      task.preferenceFit,
-      task.crossPuzzleVariety,
-      task.elapsedMs,
-      task.timeScore,
-      `${task.stats.validCount}/${task.stats.requestedCount}`,
-      task.stats.returnedCount,
-      task.firstIssue ?? "",
+      template.template,
+      template.finalScore,
+      template.score,
+      template.validPuzzleRate,
+      template.preferenceFit,
+      template.crossPuzzleVariety,
+      template.elapsedMs,
+      template.timeScore,
+      `${template.stats.validCount}/${template.stats.requestedCount}`,
+      template.stats.returnedCount,
+      template.firstIssue ?? "",
     ];
   });
 
   console.log(
     formatTable(
       [
-        "task",
+        "template",
         "finalScore",
         "overallScore",
         "validPuzzleRate",
@@ -699,21 +699,21 @@ function printModelSummary(result) {
         "returned",
         "firstIssue",
       ],
-      taskRows,
+      templateRows,
     ),
   );
 
-  for (const task of result.results) {
-    if (task.error) {
+  for (const template of result.results) {
+    if (template.error) {
       continue;
     }
-    if (Array.isArray(task.invalidPuzzles) && task.invalidPuzzles.length > 0) {
-      console.log(`\n${task.task} issues:`);
-      for (const puzzle of task.invalidPuzzles.slice(0, 3)) {
+    if (Array.isArray(template.invalidPuzzles) && template.invalidPuzzles.length > 0) {
+      console.log(`\n${template.template} issues:`);
+      for (const puzzle of template.invalidPuzzles.slice(0, 3)) {
         console.log(`- puzzle ${puzzle.index + 1}: ${puzzle.firstError}`);
       }
-      if (task.invalidPuzzles.length > 3) {
-        console.log(`- ... ${task.invalidPuzzles.length - 3} more invalid puzzles`);
+      if (template.invalidPuzzles.length > 3) {
+        console.log(`- ... ${template.invalidPuzzles.length - 3} more invalid puzzles`);
       }
     }
   }
@@ -741,9 +741,9 @@ function printLeaderboard(results) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const tasksDir = args["tasks-dir"];
+  const templatesDir = args["templates-dir"];
 
-  if (args.help || !tasksDir) {
+  if (args.help || !templatesDir) {
     printUsage();
     process.exit(args.help ? 0 : 1);
   }
@@ -779,7 +779,7 @@ async function main() {
 
   const lexiconXlsx = resolve(args["lexicon-xlsx"] ?? DEFAULT_LEXICON_XLSX);
   const lexicon = loadLexiconFromXlsx(lexiconXlsx);
-  const tasks = loadGridTasks(tasksDir, cliOptions);
+  const templates = loadTemplates(templatesDir, cliOptions);
   const models = selectModels(discoverModels(), args.model);
 
   if (models.length === 0) {
@@ -787,15 +787,15 @@ async function main() {
   }
 
   console.log(`benchmarking ${models.length} fillGrid models from ${MODELS_DIR}`);
-  console.log(`tasks: ${tasks.length} from ${resolve(tasksDir)}`);
+  console.log(`templates: ${templates.length} from ${resolve(templatesDir)}`);
   console.log(`lexicon: ${lexicon.length} entries from ${lexiconXlsx}`);
   console.log(`results: ${RUN_RESULTS_DIR}`);
-  initializeProgress(models, tasks.length);
+  initializeProgress(models, templates.length);
 
   const allResults = await Promise.all(
     models.map(async (modelInfo) => {
       const model = await loadModel(modelInfo.entry);
-      const result = await benchmarkModel(model, modelInfo.name, tasks, lexicon, cliOptions);
+      const result = await benchmarkModel(model, modelInfo.name, templates, lexicon, cliOptions);
       return {
         name: modelInfo.name,
         ...result,

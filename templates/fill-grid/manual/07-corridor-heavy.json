@@ -1,0 +1,117 @@
+{
+  "name": "07. corridor-heavy",
+  "note": "长走廊很多，合法但可能不够像好的 crossword 模板。",
+  "size": 7,
+  "grid": [
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      "#",
+      ".",
+      "#",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      ".",
+      "#",
+      "#",
+      ".",
+      "#",
+      "#",
+      "."
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ],
+    [
+      "#",
+      "#",
+      "#",
+      ".",
+      "#",
+      "#",
+      "#"
+    ],
+    [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "."
+    ]
+  ],
+  "slots": [
+    {
+      "direction": "across",
+      "row": 0,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 2,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 4,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "across",
+      "row": 6,
+      "col": 0,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 2,
+      "col": 0,
+      "length": 3
+    },
+    {
+      "direction": "down",
+      "row": 0,
+      "col": 3,
+      "length": 7
+    },
+    {
+      "direction": "down",
+      "row": 2,
+      "col": 6,
+      "length": 3
+    }
+  ],
+  "templateId": 7,
+  "templateKey": "manual/07-corridor-heavy",
+  "templateName": "07. corridor-heavy"
+}

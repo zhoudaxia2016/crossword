@@ -153,7 +153,7 @@ export default function AnswerPage({
       <header className="workspace-header">
         <div>
           <div className="eyebrow">{selectedRecord.model}</div>
-          <h2>{selectedRecord.taskName}</h2>
+          <h2>{selectedRecord.templateName}</h2>
         </div>
         <div className="workspace-header__actions">
           <div className="header-progress" aria-label="填字进度">
@@ -173,11 +173,11 @@ export default function AnswerPage({
             <div
               className="crossword-board"
               style={{
-                gridTemplateColumns: `repeat(${selectedData.task.size ?? selectedData.task.grid.length}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${selectedData.template.size ?? selectedData.template.grid.length}, minmax(0, 1fr))`,
               }}
             >
               {boardState.cells.flat().map((cell, index) => {
-                const size = selectedData.task.size ?? selectedData.task.grid.length;
+                const size = selectedData.template.size ?? selectedData.template.grid.length;
                 const row = Math.floor(index / size);
                 const col = index % size;
                 const startLabels = numberedSlots

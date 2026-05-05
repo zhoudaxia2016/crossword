@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { printFilledGridWithHeaders } from "./print-grid.js";
 
-const TASKS_ROOT = resolve("tasks/fill-grid");
+const TEMPLATES_ROOT = resolve("templates/fill-grid");
 
 function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
@@ -51,11 +51,11 @@ function summarize(result) {
 
 function printResult(resultFile) {
   const result = loadJson(resultFile);
-  const taskFile = join(TASKS_ROOT, `${result.taskKey}.json`);
-  const task = loadJson(taskFile);
+  const templateFile = join(TEMPLATES_ROOT, `${result.templateKey}.json`);
+  const template = loadJson(templateFile);
   const summary = summarize(result);
   const puzzles = result.puzzles ?? [];
-  const title = result.taskName ?? task.taskName ?? result.taskKey ?? resultFile;
+  const title = result.templateName ?? template.templateName ?? result.templateKey ?? resultFile;
 
   console.log(`\n=== ${title} ===`);
   console.log(
@@ -82,9 +82,9 @@ function printResult(resultFile) {
     console.log(`\npuzzle ${index + 1}`);
     console.log(
       printFilledGridWithHeaders({
-        size: task.size,
-        grid: task.grid,
-        slots: task.slots,
+        size: template.size,
+        grid: template.grid,
+        slots: template.slots,
         entries: puzzle.entries ?? [],
       }),
     );

@@ -21,10 +21,10 @@ export interface Puzzle {
   entries: PlacedEntry[];
 }
 
-export interface TaskFile {
-  taskId: number;
-  taskKey: string;
-  taskName: string;
+export interface TemplateFile {
+  templateId: number;
+  templateKey: string;
+  templateName: string;
   size: number;
   grid: string[][];
   slots: Slot[];
@@ -49,16 +49,16 @@ export interface Summary {
 }
 
 export interface ResultFile {
-  taskId: number;
-  taskKey: string;
-  taskName?: string;
+  templateId: number;
+  templateKey: string;
+  templateName?: string;
   puzzles: Puzzle[];
   summary?: Summary;
   error?: string;
 }
 
 export interface LoadedResult {
-  task: TaskFile;
+  template: TemplateFile;
   result: ResultFile;
 }
 
@@ -67,11 +67,11 @@ export interface ResultRecord {
   timestamp: string;
   model: string;
   fileName: string;
-  taskId: number;
-  taskKey: string;
-  taskName: string;
+  templateId: number;
+  templateKey: string;
+  templateName: string;
   resultUrl: string;
-  taskUrl: string;
+  templateUrl: string;
   playable: boolean;
   invalidReason?: string;
   summary?: Summary;

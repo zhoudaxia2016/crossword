@@ -128,11 +128,11 @@ interface TopBarProps {
   records: ResultRecord[];
   run: string;
   model: string;
-  taskId?: number;
+  templateId?: number;
   onSelectRun: (run: string) => void;
   onSelectModel: (model: string) => void;
-  onSelectTask?: (id: number) => void;
-  showTask: boolean;
+  onSelectTemplate?: (id: number) => void;
+  showTemplate: boolean;
   puzzles?: { entries: PlacedEntry[] }[];
   puzzleIndex?: number;
   onSelectPuzzle?: (index: number) => void;
@@ -160,7 +160,7 @@ export interface AppRouteContext {
     percent: number;
   } | null;
   error: string;
-  openTask: (taskId: number) => void;
+  openTemplate: (templateId: number) => void;
   selectSlot: (slot: SlotWithNumber | undefined) => void;
   setHoveredSlotKey: (key: string) => void;
   confirmDraft: (draft: string) => void;
@@ -170,11 +170,11 @@ function TopBar({
   records,
   run,
   model,
-  taskId,
+  templateId,
   onSelectRun,
   onSelectModel,
-  onSelectTask,
-  showTask,
+  onSelectTemplate,
+  showTemplate,
   puzzles,
   puzzleIndex,
   onSelectPuzzle,
@@ -195,12 +195,12 @@ function TopBar({
     () => modelsInGroup.map((m) => m.model),
     [modelsInGroup],
   );
-  const currentModelTasks = useMemo(
+  const currentModelTemplates = useMemo(
     () => {
-      const tasks = modelsInGroup.find((m) => m.model === model)?.tasks ?? [];
-      return showTask ? tasks.filter((task) => task.playable) : tasks;
+      const templates = modelsInGroup.find((m) => m.model === model)?.templates ?? [];
+      return showTemplate ? templates.filter((template) => template.playable) : templates;
     },
-    [modelsInGroup, model, showTask],
+    [modelsInGroup, model, showTemplate],
   );
 
   return (
@@ -218,17 +218,17 @@ function TopBar({
           selectedKey={model}
           onSelect={onSelectModel}
         />
-        {showTask && (
+        {showTemplate && (
           <>
             <DropdownMenu
-              label="Task"
-              items={currentModelTasks.map((t) => ({
-                key: String(t.taskId),
-                label: t.taskName,
+              label="Template"
+              items={currentModelTemplates.map((t) => ({
+                key: String(t.templateId),
+                label: t.templateName,
                 meta: `F ${formatScore(t.summary?.finalScore)}`,
               }))}
-              selectedKey={taskId !== undefined ? String(taskId) : ""}
-              onSelect={(key) => onSelectTask?.(Number(key))}
+              selectedKey={templateId !== undefined ? String(templateId) : ""}
+              onSelect={(key) => onSelectTemplate?.(Number(key))}
             />
             <div className="top-bar__actions">
               <div className="puzzle-tabs" style={{ margin: 0 }}>
@@ -308,20 +308,20 @@ export default function App() {
     [recordsForRunModel],
   );
 
-  const taskParam = searchParams.get("task") ?? "";
+  const templateParam = searchParams.get("template") ?? "";
   const selectedRecord = useMemo(() => {
     const candidateRecords = mode === "answer" ? playableRecordsForRunModel : recordsForRunModel;
-    if (taskParam) {
-      const parsedTaskId = Number(taskParam);
-      const found = candidateRecords.find((r) => r.taskId === parsedTaskId);
+    if (templateParam) {
+      const parsedTemplateId = Number(templateParam);
+      const found = candidateRecords.find((r) => r.templateId === parsedTemplateId);
       if (found) return found;
     }
     return candidateRecords[0];
-  }, [mode, playableRecordsForRunModel, recordsForRunModel, taskParam]);
+  }, [mode, playableRecordsForRunModel, recordsForRunModel, templateParam]);
 
   function handleModeChange(newMode: "answer" | "benchmark") {
-    const task = searchParams.get("task");
-    const qs = task ? `?task=${task}` : "";
+    const template = searchParams.get("template");
+    const qs = template ? `?template=${template}` : "";
     navigate(`/runs/${run}/${model}/${newMode}${qs}`);
   }
 
@@ -332,37 +332,37 @@ export default function App() {
   }
 
   function handleSelectModel(newModel: string) {
-    const task = searchParams.get("task");
-    const qs = task ? `?task=${task}` : "";
+    const template = searchParams.get("template");
+    const qs = template ? `?template=${template}` : "";
     navigate(`/runs/${run}/${newModel}/${mode}${qs}`);
   }
 
-  function handleSelectTask(id: number) {
+  function handleSelectTemplate(id: number) {
     const next = new URLSearchParams(searchParams);
-    next.set("task", String(id));
+    next.set("template", String(id));
     setSearchParams(next, { replace: true });
   }
 
-  function openTask(taskId: number) {
-    navigate(`/runs/${run}/${model}/answer?task=${taskId}`);
+  function openTemplate(templateId: number) {
+    navigate(`/runs/${run}/${model}/answer?template=${templateId}`);
   }
 
   // Sync URL when derived values don't match path params
   useEffect(() => {
     if (records.length === 0) return;
-    const task =
+    const template =
       mode === "answer"
-        ? selectedRecord?.taskId !== undefined
-          ? String(selectedRecord.taskId)
+        ? selectedRecord?.templateId !== undefined
+          ? String(selectedRecord.templateId)
           : ""
-        : searchParams.get("task") ?? "";
-    const qs = task ? `?task=${task}` : "";
+        : searchParams.get("template") ?? "";
+    const qs = template ? `?template=${template}` : "";
     const target = `/runs/${run}/${model}/${mode}${qs}`;
-    const current = window.location.pathname + (task ? `?task=${task}` : "");
+    const current = window.location.pathname + (template ? `?template=${template}` : "");
     if (current !== target) {
       navigate(target, { replace: true });
     }
-  }, [run, mode, model, searchParams, navigate, records.length, selectedRecord?.taskId]);
+  }, [run, mode, model, searchParams, navigate, records.length, selectedRecord?.templateId]);
 
   useEffect(() => {
     if (!selectedRecord) {
@@ -382,7 +382,7 @@ export default function App() {
   const puzzles = selectedData?.result.puzzles ?? [];
   const puzzleIndex = Math.min(selectedPuzzleIndex, Math.max(0, puzzles.length - 1));
   const selectedPuzzle = puzzles[puzzleIndex];
-  const slots = selectedData?.task.slots ?? [];
+  const slots = selectedData?.template.slots ?? [];
   const numberedSlots = useMemo(() => deriveSlotsWithNumbers(slots), [slots]);
   const entryMap = useMemo(() => buildEntryMap(selectedPuzzle?.entries ?? []), [selectedPuzzle]);
   const taskAnswers = cellAnswers[selectedRecord?.id ?? ""] ?? {};
@@ -392,8 +392,8 @@ export default function App() {
     () =>
       selectedData && selectedPuzzle
         ? buildBoardState(
-            selectedData.task.size ?? selectedData.task.grid.length,
-            selectedData.task.grid,
+            selectedData.template.size ?? selectedData.template.grid.length,
+            selectedData.template.grid,
             selectedPuzzle,
             puzzleCells,
           )
@@ -430,7 +430,7 @@ export default function App() {
     setSelectedPuzzleIndex(0);
     setSelectedSlotKey("");
     setHoveredSlotKey("");
-  }, [taskParam]);
+  }, [templateParam]);
 
   useEffect(() => {
     setSelectedSlotKey("");
@@ -492,7 +492,7 @@ export default function App() {
     selectedSolved,
     boardState,
     error,
-    openTask,
+    openTemplate,
     selectSlot,
     setHoveredSlotKey,
     confirmDraft,
@@ -505,11 +505,11 @@ export default function App() {
         records={records}
         run={run}
         model={model}
-        taskId={selectedRecord?.taskId}
+        templateId={selectedRecord?.templateId}
         onSelectRun={handleSelectRun}
         onSelectModel={handleSelectModel}
-        onSelectTask={handleSelectTask}
-        showTask={true}
+        onSelectTemplate={handleSelectTemplate}
+        showTemplate={true}
         puzzles={puzzles}
         puzzleIndex={puzzleIndex}
         onSelectPuzzle={setSelectedPuzzleIndex}
